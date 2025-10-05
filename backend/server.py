@@ -392,7 +392,7 @@ async def initialize_admin():
     )
     
     admin_data = prepare_for_mongo(admin_user.dict())
-    admin_data["password"] = get_password_hash("admin123")
+    admin_data["password"] = get_password_hash("admin")
     
     await db.users.insert_one(admin_data)
     return {"message": "Admin user created", "username": "admin", "password": "admin123"}
