@@ -473,8 +473,9 @@ async def manage_payment(
     
     if payment_action.action == "mark_paid":
         # Move from pending to credited
-        new_pending = employee.get("pending_earnings", 0) - assignment["amount"]
-        new_credited = employee.get("credited_earnings", 0) + assignment["amount"]
+        assignment_amount = assignment.get("amount", 0.0)
+        new_pending = employee.get("pending_earnings", 0) - assignment_amount
+        new_credited = employee.get("credited_earnings", 0) + assignment_amount
         
         await db.users.update_one(
             {"id": assignment["assigned_to"]},
