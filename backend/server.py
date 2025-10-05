@@ -425,8 +425,9 @@ async def review_submission(
         
         # Update employee earnings
         if employee:
-            new_pending = employee.get("pending_earnings", 0) + assignment["amount"]
-            new_total = employee.get("total_earnings", 0) + assignment["amount"]
+            assignment_amount = assignment.get("amount", 0.0)
+            new_pending = employee.get("pending_earnings", 0) + assignment_amount
+            new_total = employee.get("total_earnings", 0) + assignment_amount
             await db.users.update_one(
                 {"id": assignment["assigned_to"]},
                 {"$set": {
