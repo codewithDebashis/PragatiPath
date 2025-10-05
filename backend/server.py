@@ -101,8 +101,12 @@ def prepare_for_mongo(data):
     return data
 
 def parse_from_mongo(item):
-    """Convert ISO strings back to datetime objects"""
+    """Convert ISO strings back to datetime objects and remove MongoDB ObjectId"""
     if isinstance(item, dict):
+        # Remove MongoDB's _id field to avoid ObjectId serialization issues
+        if '_id' in item:
+            del item['_id']
+            
         for key, value in item.items():
             if isinstance(value, str) and key.endswith('_at') or key.endswith('_time'):
                 try:
