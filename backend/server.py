@@ -147,6 +147,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Invalid token")
 
 # Routes
+@api_router.get("/")
+async def root():
+    return {"message": "Employee Work Management API"}
+
 @api_router.post("/auth/login")
 async def login(user_login: UserLogin):
     user = await db.users.find_one({"username": user_login.username})
