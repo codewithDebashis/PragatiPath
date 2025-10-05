@@ -26,7 +26,7 @@ db = client[os.environ['DB_NAME']]
 # Security
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-SECRET_KEY = "your-secret-key-change-in-production"
+SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 ALGORITHM = "HS256"
 
 # Create the main app
