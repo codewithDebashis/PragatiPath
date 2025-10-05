@@ -436,7 +436,7 @@ async def review_submission(
                 }}
             )
         
-        return {"message": f"Work accepted! Amount ₹{assignment['amount']} has been credited to employee's pending earnings."}
+        return {"message": f"Work accepted! Amount ₹{assignment.get('amount', 0)} has been credited to employee's pending earnings."}
     
     elif review.action == "reject":
         # Set resubmission deadline
