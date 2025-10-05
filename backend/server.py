@@ -491,7 +491,7 @@ async def manage_payment(
             {"$set": {"payment_status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}}
         )
         
-        return {"message": f"Payment of ₹{assignment['amount']} marked as completed and credited to employee."}
+        return {"message": f"Payment of ₹{assignment.get('amount', 0)} marked as completed and credited to employee."}
     
     elif payment_action.action == "mark_unpaid":
         # Move from credited back to pending (if needed)
