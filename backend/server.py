@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, status, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -9,7 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.context import CryptContext
 import base64
@@ -30,7 +30,7 @@ SECRET_KEY = "your-secret-key-change-in-production"
 ALGORITHM = "HS256"
 
 # Create the main app
-app = FastAPI(title="Employee Work Management System")
+app = FastAPI(title="Life Line's Work Portal")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -44,6 +44,9 @@ class User(BaseModel):
     full_name: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = True
+    total_earnings: float = 0.0
+    pending_earnings: float = 0.0
+    credited_earnings: float = 0.0
 
 class UserCreate(BaseModel):
     username: str
@@ -63,16 +66,23 @@ class WorkAssignment(BaseModel):
     assigned_to: str  # employee user id
     assigned_by: str  # admin user id
     deadline: datetime
+    resubmission_deadline: Optional[datetime] = None
+    amount: float = 0.0
     attachment_name: Optional[str] = None
     attachment_data: Optional[str] = None  # base64 encoded file
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    status: str = "pending"  # "pending", "submitted", "completed"
+    status: str = "pending"  # "pending", "submitted", "accepted", "rejected", "resubmitted"
+    review_comments: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    review_deadline_hours: int = 24
 
 class WorkAssignmentCreate(BaseModel):
     title: str
     description: str
     assigned_to: str
     deadline: str  # ISO format string
+    amount: float
+    review_deadline_hours: int = 24
 
 class WorkSubmission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -82,6 +92,15 @@ class WorkSubmission(BaseModel):
     submission_file_data: Optional[str] = None  # base64 encoded
     notes: Optional[str] = None
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    is_resubmission: bool = False
+
+class ReviewSubmission(BaseModel):
+    action: str  # "accept" or "reject"
+    comments: Optional[str] = None
+    resubmission_hours: Optional[int] = 48
+
+class PaymentAction(BaseModel):
+    action: str  # "mark_paid" or "mark_unpaid"
 
 class TimeTrackingSession(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -90,6 +109,12 @@ class TimeTrackingSession(BaseModel):
     end_time: Optional[datetime] = None
     duration_minutes: Optional[int] = None
     date: str = Field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
+
+class SystemSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    portal_enabled: bool = True
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: str
 
 # Helper functions
 def prepare_for_mongo(data):
@@ -108,12 +133,17 @@ def parse_from_mongo(item):
             del item['_id']
             
         for key, value in item.items():
-            if isinstance(value, str) and key.endswith('_at') or key.endswith('_time'):
+            if isinstance(value, str) and (key.endswith('_at') or key.endswith('_time')):
                 try:
                     item[key] = datetime.fromisoformat(value)
                 except:
                     pass
             elif key == 'deadline' and isinstance(value, str):
+                try:
+                    item[key] = datetime.fromisoformat(value)
+                except:
+                    pass
+            elif key == 'resubmission_deadline' and isinstance(value, str):
                 try:
                     item[key] = datetime.fromisoformat(value)
                 except:
@@ -144,13 +174,34 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+async def check_portal_status():
+    """Check if portal is enabled for employee access"""
+    settings = await db.system_settings.find_one({})
+    if not settings:
+        # Create default settings
+        default_settings = SystemSettings(updated_by="system")
+        await db.system_settings.insert_one(prepare_for_mongo(default_settings.dict()))
+        return True
+    return settings.get("portal_enabled", True)
+
 # Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Employee Work Management API"}
+    return {"message": "Life Line's Work Portal API"}
+
+@api_router.get("/portal-status")
+async def get_portal_status():
+    enabled = await check_portal_status()
+    return {"enabled": enabled}
 
 @api_router.post("/auth/login")
 async def login(user_login: UserLogin):
+    # Check portal status for employees
+    if user_login.username != "admin":
+        portal_enabled = await check_portal_status()
+        if not portal_enabled:
+            raise HTTPException(status_code=403, detail="Portal is currently disabled. Please contact administrator.")
+    
     user = await db.users.find_one({"username": user_login.username})
     if not user or not verify_password(user_login.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -227,6 +278,8 @@ async def create_assignment(
     description: str = Form(...),
     assigned_to: str = Form(...),
     deadline: str = Form(...),
+    amount: float = Form(...),
+    review_deadline_hours: int = Form(24),
     file: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user)
 ):
@@ -238,7 +291,9 @@ async def create_assignment(
         "description": description,
         "assigned_to": assigned_to,
         "assigned_by": current_user.id,
-        "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+        "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00')),
+        "amount": amount,
+        "review_deadline_hours": review_deadline_hours
     }
     
     if file:
@@ -272,6 +327,14 @@ async def get_assignments(current_user: User = Depends(get_current_user)):
         if submission:
             parsed["submission"] = parse_from_mongo(submission)
         
+        # Calculate review deadline
+        if parsed["status"] == "submitted" and "submitted_at" in (parsed.get("submission") or {}):
+            submitted_time = parsed["submission"]["submitted_at"]
+            if isinstance(submitted_time, str):
+                submitted_time = datetime.fromisoformat(submitted_time)
+            review_deadline = submitted_time + timedelta(hours=parsed.get("review_deadline_hours", 24))
+            parsed["review_deadline"] = review_deadline.isoformat()
+        
         result.append(parsed)
     
     return result
@@ -291,10 +354,17 @@ async def submit_assignment(
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
     
+    # Check if assignment allows submissions (not rejected with passed resubmission deadline)
+    if assignment["status"] == "rejected" and assignment.get("resubmission_deadline"):
+        resubmission_deadline = datetime.fromisoformat(assignment["resubmission_deadline"])
+        if datetime.now(timezone.utc) > resubmission_deadline:
+            raise HTTPException(status_code=400, detail="Resubmission deadline has passed")
+    
     submission_data = {
         "assignment_id": assignment_id,
         "submitted_by": current_user.id,
-        "notes": notes
+        "notes": notes,
+        "is_resubmission": assignment["status"] == "rejected"
     }
     
     if file:
@@ -303,15 +373,184 @@ async def submit_assignment(
         submission_data["submission_file_data"] = base64.b64encode(file_content).decode('utf-8')
     
     submission = WorkSubmission(**submission_data)
+    
+    # Remove old submission if exists
+    await db.submissions.delete_many({"assignment_id": assignment_id})
+    
+    # Insert new submission
     await db.submissions.insert_one(prepare_for_mongo(submission.dict()))
     
     # Update assignment status
+    new_status = "resubmitted" if submission.is_resubmission else "submitted"
     await db.assignments.update_one(
         {"id": assignment_id},
-        {"$set": {"status": "submitted"}}
+        {"$set": {
+            "status": new_status,
+            "resubmission_deadline": None,
+            "review_comments": None
+        }}
     )
     
-    return {"message": "Assignment submitted successfully"}
+    return {"message": "Assignment submitted successfully. It will be reviewed and you will be informed within 24 hours."}
+
+@api_router.post("/assignments/{assignment_id}/review")
+async def review_submission(
+    assignment_id: str,
+    review: ReviewSubmission,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can review submissions")
+    
+    assignment = await db.assignments.find_one({"id": assignment_id})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    submission = await db.submissions.find_one({"assignment_id": assignment_id})
+    if not submission:
+        raise HTTPException(status_code=404, detail="No submission found for this assignment")
+    
+    employee = await db.users.find_one({"id": assignment["assigned_to"]})
+    
+    if review.action == "accept":
+        # Update assignment status
+        await db.assignments.update_one(
+            {"id": assignment_id},
+            {"$set": {
+                "status": "accepted",
+                "review_comments": review.comments,
+                "reviewed_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        # Update employee earnings
+        if employee:
+            new_pending = employee.get("pending_earnings", 0) + assignment["amount"]
+            new_total = employee.get("total_earnings", 0) + assignment["amount"]
+            await db.users.update_one(
+                {"id": assignment["assigned_to"]},
+                {"$set": {
+                    "pending_earnings": new_pending,
+                    "total_earnings": new_total
+                }}
+            )
+        
+        return {"message": f"Work accepted! Amount ₹{assignment['amount']} has been credited to employee's pending earnings."}
+    
+    elif review.action == "reject":
+        # Set resubmission deadline
+        resubmission_deadline = datetime.now(timezone.utc) + timedelta(hours=review.resubmission_hours or 48)
+        
+        await db.assignments.update_one(
+            {"id": assignment_id},
+            {"$set": {
+                "status": "rejected",
+                "review_comments": review.comments,
+                "reviewed_at": datetime.now(timezone.utc).isoformat(),
+                "resubmission_deadline": resubmission_deadline.isoformat()
+            }}
+        )
+        
+        return {"message": f"Work rejected. Employee has {review.resubmission_hours or 48} hours to resubmit with improvements."}
+
+@api_router.post("/assignments/{assignment_id}/payment")
+async def manage_payment(
+    assignment_id: str,
+    payment_action: PaymentAction,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can manage payments")
+    
+    assignment = await db.assignments.find_one({"id": assignment_id})
+    if not assignment or assignment["status"] != "accepted":
+        raise HTTPException(status_code=400, detail="Assignment must be accepted before payment management")
+    
+    employee = await db.users.find_one({"id": assignment["assigned_to"]})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    if payment_action.action == "mark_paid":
+        # Move from pending to credited
+        new_pending = employee.get("pending_earnings", 0) - assignment["amount"]
+        new_credited = employee.get("credited_earnings", 0) + assignment["amount"]
+        
+        await db.users.update_one(
+            {"id": assignment["assigned_to"]},
+            {"$set": {
+                "pending_earnings": max(0, new_pending),
+                "credited_earnings": new_credited
+            }}
+        )
+        
+        # Mark assignment as paid
+        await db.assignments.update_one(
+            {"id": assignment_id},
+            {"$set": {"payment_status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return {"message": f"Payment of ₹{assignment['amount']} marked as completed and credited to employee."}
+    
+    elif payment_action.action == "mark_unpaid":
+        # Move from credited back to pending (if needed)
+        await db.assignments.update_one(
+            {"id": assignment_id},
+            {"$unset": {"payment_status": "", "paid_at": ""}}
+        )
+        
+        return {"message": "Payment status reverted to unpaid."}
+
+@api_router.get("/assignments/{assignment_id}/download")
+async def download_submission_file(
+    assignment_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can download submission files")
+    
+    submission = await db.submissions.find_one({"assignment_id": assignment_id})
+    if not submission or not submission.get("submission_file_data"):
+        raise HTTPException(status_code=404, detail="No file found for this submission")
+    
+    try:
+        file_data = base64.b64decode(submission["submission_file_data"])
+        filename = submission.get("submission_file_name", "submission_file")
+        
+        return Response(
+            content=file_data,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error processing file download")
+
+@api_router.get("/assignments/{assignment_id}/attachment")
+async def download_assignment_attachment(
+    assignment_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    assignment = await db.assignments.find_one({"id": assignment_id})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    # Check permissions
+    if current_user.role != "admin" and assignment["assigned_to"] != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if not assignment.get("attachment_data"):
+        raise HTTPException(status_code=404, detail="No attachment found for this assignment")
+    
+    try:
+        file_data = base64.b64decode(assignment["attachment_data"])
+        filename = assignment.get("attachment_name", "assignment_attachment")
+        
+        return Response(
+            content=file_data,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error processing file download")
 
 @api_router.get("/time-tracking")
 async def get_time_tracking(current_user: User = Depends(get_current_user)):
@@ -347,31 +586,122 @@ async def get_dashboard_stats(current_user: User = Depends(get_current_user)):
     if current_user.role == "admin":
         total_employees = await db.users.count_documents({"role": "employee"})
         total_assignments = await db.assignments.count_documents({})
-        pending_assignments = await db.assignments.count_documents({"status": "pending"})
-        submitted_assignments = await db.assignments.count_documents({"status": "submitted"})
+        pending_assignments = await db.assignments.count_documents({"status": {"$in": ["pending", "submitted", "resubmitted"]}})
+        accepted_assignments = await db.assignments.count_documents({"status": "accepted"})
+        
+        # Calculate total pending and credited earnings
+        pipeline = [
+            {"$match": {"role": "employee"}},
+            {"$group": {
+                "_id": None,
+                "total_pending": {"$sum": "$pending_earnings"},
+                "total_credited": {"$sum": "$credited_earnings"},
+                "total_earnings": {"$sum": "$total_earnings"}
+            }}
+        ]
+        
+        earnings_result = await db.users.aggregate(pipeline).to_list(1)
+        earnings = earnings_result[0] if earnings_result else {"total_pending": 0, "total_credited": 0, "total_earnings": 0}
         
         return {
             "total_employees": total_employees,
             "total_assignments": total_assignments,
             "pending_assignments": pending_assignments,
-            "submitted_assignments": submitted_assignments
+            "accepted_assignments": accepted_assignments,
+            "total_pending_earnings": earnings["total_pending"],
+            "total_credited_earnings": earnings["total_credited"],
+            "total_earnings": earnings["total_earnings"]
         }
     else:
         my_assignments = await db.assignments.count_documents({"assigned_to": current_user.id})
         pending_assignments = await db.assignments.count_documents({
             "assigned_to": current_user.id,
-            "status": "pending"
+            "status": {"$in": ["pending", "submitted", "resubmitted"]}
         })
-        submitted_assignments = await db.assignments.count_documents({
+        accepted_assignments = await db.assignments.count_documents({
             "assigned_to": current_user.id,
-            "status": "submitted"
+            "status": "accepted"
         })
+        
+        # Get user earnings
+        user = await db.users.find_one({"id": current_user.id})
         
         return {
             "total_assignments": my_assignments,
             "pending_assignments": pending_assignments,
-            "submitted_assignments": submitted_assignments
+            "accepted_assignments": accepted_assignments,
+            "pending_earnings": user.get("pending_earnings", 0),
+            "credited_earnings": user.get("credited_earnings", 0),
+            "total_earnings": user.get("total_earnings", 0)
         }
+
+@api_router.post("/system/portal-toggle")
+async def toggle_portal_status(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can control portal status")
+    
+    # Get current settings
+    settings = await db.system_settings.find_one({})
+    current_status = settings.get("portal_enabled", True) if settings else True
+    
+    # Toggle status
+    new_status = not current_status
+    
+    if settings:
+        await db.system_settings.update_one(
+            {"id": settings["id"]},
+            {"$set": {
+                "portal_enabled": new_status,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": current_user.id
+            }}
+        )
+    else:
+        new_settings = SystemSettings(portal_enabled=new_status, updated_by=current_user.id)
+        await db.system_settings.insert_one(prepare_for_mongo(new_settings.dict()))
+    
+    status_text = "enabled" if new_status else "disabled"
+    return {"message": f"Portal has been {status_text}", "portal_enabled": new_status}
+
+@api_router.get("/employees/earnings")
+async def get_employees_earnings(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view employee earnings")
+    
+    employees = await db.users.find({"role": "employee"}).to_list(None)
+    
+    result = []
+    for emp in employees:
+        parsed_emp = parse_from_mongo(emp)
+        
+        # Get accepted assignments for payment tracking
+        accepted_assignments = await db.assignments.find({
+            "assigned_to": emp["id"],
+            "status": "accepted"
+        }).to_list(None)
+        
+        payment_details = []
+        for assignment in accepted_assignments:
+            parsed_assignment = parse_from_mongo(assignment)
+            payment_details.append({
+                "assignment_title": parsed_assignment["title"],
+                "amount": parsed_assignment["amount"],
+                "accepted_at": parsed_assignment.get("reviewed_at"),
+                "payment_status": parsed_assignment.get("payment_status", "unpaid"),
+                "paid_at": parsed_assignment.get("paid_at"),
+                "assignment_id": parsed_assignment["id"]
+            })
+        
+        result.append({
+            "employee_id": emp["id"],
+            "employee_name": emp["full_name"],
+            "total_earnings": emp.get("total_earnings", 0),
+            "pending_earnings": emp.get("pending_earnings", 0),
+            "credited_earnings": emp.get("credited_earnings", 0),
+            "payment_details": payment_details
+        })
+    
+    return result
 
 # Initialize admin user
 @api_router.post("/init")
@@ -384,7 +714,7 @@ async def initialize_admin():
     # Create admin user
     admin_user = User(
         username="admin",
-        email="admin@company.com",
+        email="admin@lifeline.com",
         role="admin",
         full_name="Administrator"
     )
@@ -393,7 +723,12 @@ async def initialize_admin():
     admin_data["password"] = get_password_hash("admin")
     
     await db.users.insert_one(admin_data)
-    return {"message": "Admin user created", "username": "admin", "password": "admin"}
+    
+    # Initialize system settings
+    settings = SystemSettings(updated_by=admin_user.id)
+    await db.system_settings.insert_one(prepare_for_mongo(settings.dict()))
+    
+    return {"message": "Life Line's work portal initialized", "username": "admin", "password": "admin"}
 
 # Include the router in the main app
 app.include_router(api_router)
