@@ -685,7 +685,7 @@ async def get_employees_earnings(current_user: User = Depends(get_current_user))
             parsed_assignment = parse_from_mongo(assignment)
             payment_details.append({
                 "assignment_title": parsed_assignment["title"],
-                "amount": parsed_assignment["amount"],
+                "amount": parsed_assignment.get("amount", 0.0),
                 "accepted_at": parsed_assignment.get("reviewed_at"),
                 "payment_status": parsed_assignment.get("payment_status", "unpaid"),
                 "paid_at": parsed_assignment.get("paid_at"),
