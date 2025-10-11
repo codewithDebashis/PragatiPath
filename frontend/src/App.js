@@ -1294,13 +1294,14 @@ function CreateAssignmentDialog({ employees, onAssignmentCreated }) {
             />
           </div>
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Task Description</Label>
             <Textarea
               id="description"
               data-testid="assignment-description"
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
-              placeholder="Enter assignment description"
+              placeholder="Describe the task (e.g., Download the attached image/PDF and create a poster, PowerPoint presentation, or Word document based on the requirements)"
+              rows={4}
             />
           </div>
           <div>
