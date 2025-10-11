@@ -291,24 +291,59 @@ async def create_assignment(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admin can create assignments")
     
-    assignment_data = {
-        "title": title,
-        "description": description,
-        "assigned_to": assigned_to,
-        "assigned_by": current_user.id,
-        "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00')),
-        "amount": amount,
-        "review_deadline_hours": review_deadline_hours
-    }
-    
-    if file:
-        file_content = await file.read()
-        assignment_data["attachment_name"] = file.filename
-        assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
-    
-    assignment = WorkAssignment(**assignment_data)
-    await db.assignments.insert_one(prepare_for_mongo(assignment.dict()))
-    return {"message": "Assignment created successfully", "id": assignment.id}
+    # Handle "assign to all employees" functionality
+    if assigned_to == "all_employees":
+        # Get all active employees
+        employees = await db.users.find({"role": "employee", "is_active": True}).to_list(None)
+        
+        assignment_ids = []
+        for employee in employees:
+            assignment_data = {
+                "title": title,
+                "description": description,
+                "assigned_to": employee["id"],
+                "assigned_by": current_user.id,
+                "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00')),
+                "amount": amount,
+                "review_deadline_hours": review_deadline_hours
+            }
+            
+            if file:
+                file_content = await file.read()
+                assignment_data["attachment_name"] = file.filename
+                assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
+                # Reset file pointer for next iteration
+                await file.seek(0)
+            
+            assignment = WorkAssignment(**assignment_data)
+            await db.assignments.insert_one(prepare_for_mongo(assignment.dict()))
+            assignment_ids.append(assignment.id)
+        
+        return {
+            "message": f"Assignment created successfully for {len(employees)} employees", 
+            "assignment_ids": assignment_ids,
+            "employees_count": len(employees)
+        }
+    else:
+        # Single employee assignment (existing functionality)
+        assignment_data = {
+            "title": title,
+            "description": description,
+            "assigned_to": assigned_to,
+            "assigned_by": current_user.id,
+            "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00')),
+            "amount": amount,
+            "review_deadline_hours": review_deadline_hours
+        }
+        
+        if file:
+            file_content = await file.read()
+            assignment_data["attachment_name"] = file.filename
+            assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
+        
+        assignment = WorkAssignment(**assignment_data)
+        await db.assignments.insert_one(prepare_for_mongo(assignment.dict()))
+        return {"message": "Assignment created successfully", "id": assignment.id}
 
 @api_router.get("/assignments")
 async def get_assignments(current_user: User = Depends(get_current_user)):
