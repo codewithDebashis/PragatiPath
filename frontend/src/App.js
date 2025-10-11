@@ -452,6 +452,7 @@ function AdminDashboard() {
                         <div className="text-sm font-medium">Total: ₹{employee.total_earnings || 0}</div>
                         <div className="text-xs text-orange-600">Pending: ₹{employee.pending_earnings || 0}</div>
                         <div className="text-xs text-green-600">Credited: ₹{employee.credited_earnings || 0}</div>
+                        <div className="text-xs text-blue-600">Balance: ₹{employee.account_balance || 0}</div>
                         <Badge variant={employee.is_active ? "default" : "secondary"}>
                           {employee.is_active ? 'Active' : 'Inactive'}
                         </Badge>
@@ -459,6 +460,15 @@ function AdminDashboard() {
                     </div>
                   </CardContent>
                 </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="balances" className="space-y-4">
+            <h2 className="text-xl font-semibold">Employee Balance Management</h2>
+            <div className="grid gap-4">
+              {employees.map((employee) => (
+                <EmployeeBalanceCard key={employee.id} employee={employee} onUpdate={fetchDashboardData} />
               ))}
             </div>
           </TabsContent>
