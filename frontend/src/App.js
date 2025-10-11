@@ -407,9 +407,10 @@ function AdminDashboard() {
 
         {/* Main Content */}
         <Tabs defaultValue="assignments" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="assignments">Assignments</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="balances">Balances</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
             <TabsTrigger value="timetracking">Time Tracking</TabsTrigger>
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
