@@ -890,6 +890,82 @@ function SubmissionReviewCard({ assignment, onUpdate, onDownload }) {
   );
 }
 
+// Employee Balance Card Component
+function EmployeeBalanceCard({ employee, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [newBalance, setNewBalance] = useState(employee.account_balance || 0);
+  const [loading, setLoading] = useState(false);
+
+  const handleUpdateBalance = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API}/employees/${employee.id}/balance`, {
+        employee_id: employee.id,
+        new_balance: parseFloat(newBalance)
+      });
+      
+      toast.success(response.data.message);
+      setEditing(false);
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to update balance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-medium text-lg">{employee.full_name}</h3>
+            <p className="text-sm text-gray-600">{employee.email}</p>
+            <p className="text-sm text-gray-500">@{employee.username}</p>
+          </div>
+          <div className="text-right space-y-2">
+            {editing ? (
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  value={newBalance}
+                  onChange={(e) => setNewBalance(e.target.value)}
+                  placeholder="Enter new balance"
+                  className="w-32"
+                />
+                <div className="flex space-x-2">
+                  <Button size="sm" onClick={handleUpdateBalance} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-2xl font-bold text-purple-600 bg-purple-50 px-3 py-2 rounded">
+                  ₹{employee.account_balance || 0}
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => {
+                    setNewBalance(employee.account_balance || 0);
+                    setEditing(true);
+                  }}
+                >
+                  Edit Balance
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // Payment Card Component
 function PaymentCard({ payment, onUpdate }) {
   const [loading, setLoading] = useState(false);
