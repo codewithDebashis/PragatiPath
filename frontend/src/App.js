@@ -1367,12 +1367,16 @@ function CreateAssignmentDialog({ employees, onAssignmentCreated }) {
             />
           </div>
           <div>
-            <Label htmlFor="file">Attachment (optional)</Label>
+            <Label htmlFor="file">Task Material (Image/PDF/Document)</Label>
             <Input
               id="file"
               type="file"
+              accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
               onChange={(e) => setFile(e.target.files[0])}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Upload images, PDFs, or documents that employees need to work with
+            </p>
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
