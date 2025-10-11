@@ -666,7 +666,7 @@ function EmployeeDashboard() {
                 <DollarSign className="w-5 h-5 text-white" />
                 <div>
                   <div className="text-xl font-bold text-white">₹{stats.account_balance || 0}</div>
-                  <div className="text-xs text-white/90">Account Balance</div>
+                  <div className="text-xs text-white/90">Your Contribution</div>
                 </div>
               </div>
             </CardContent>
