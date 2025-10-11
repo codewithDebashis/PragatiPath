@@ -80,10 +80,14 @@ class WorkAssignment(BaseModel):
 class WorkAssignmentCreate(BaseModel):
     title: str
     description: str
-    assigned_to: str
+    assigned_to: str  # Can be employee ID or "all_employees"
     deadline: str  # ISO format string
     amount: float
     review_deadline_hours: int = 24
+
+class EmployeeBalanceUpdate(BaseModel):
+    employee_id: str
+    new_balance: float
 
 class WorkSubmission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
