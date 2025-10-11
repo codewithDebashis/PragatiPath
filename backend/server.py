@@ -740,7 +740,53 @@ async def get_employees_earnings(current_user: User = Depends(get_current_user))
             "total_earnings": emp.get("total_earnings", 0),
             "pending_earnings": emp.get("pending_earnings", 0),
             "credited_earnings": emp.get("credited_earnings", 0),
+            "account_balance": emp.get("account_balance", 0),
             "payment_details": payment_details
+        })
+    
+    return result
+
+@api_router.post("/employees/{employee_id}/balance")
+async def update_employee_balance(
+    employee_id: str,
+    balance_update: EmployeeBalanceUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can update employee balances")
+    
+    # Verify employee exists
+    employee = await db.users.find_one({"id": employee_id, "role": "employee"})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Update employee balance
+    await db.users.update_one(
+        {"id": employee_id},
+        {"$set": {"account_balance": balance_update.new_balance}}
+    )
+    
+    return {
+        "message": f"Balance updated successfully for {employee['full_name']}",
+        "employee_name": employee["full_name"],
+        "new_balance": balance_update.new_balance
+    }
+
+@api_router.get("/employees/balances")
+async def get_employee_balances(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view employee balances")
+    
+    employees = await db.users.find({"role": "employee"}).to_list(None)
+    
+    result = []
+    for emp in employees:
+        result.append({
+            "employee_id": emp["id"],
+            "employee_name": emp["full_name"],
+            "account_balance": emp.get("account_balance", 0),
+            "username": emp["username"],
+            "email": emp["email"]
         })
     
     return result
