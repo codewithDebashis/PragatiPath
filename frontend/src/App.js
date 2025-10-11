@@ -1317,9 +1317,13 @@ function CreateAssignmentDialog({ employees, onAssignmentCreated }) {
             <Label htmlFor="assigned_to">Assign to Employee</Label>
             <Select value={formData.assigned_to} onValueChange={(value) => setFormData({...formData, assigned_to: value})}>
               <SelectTrigger data-testid="assignment-employee-select">
-                <SelectValue placeholder="Select employee" />
+                <SelectValue placeholder="Select employee or assign to all" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all_employees" className="font-medium text-blue-600">
+                  📢 Assign to All Employees
+                </SelectItem>
+                <div className="border-t my-1"></div>
                 {employees.map((employee) => (
                   <SelectItem key={employee.id} value={employee.id}>
                     {employee.full_name} ({employee.username})
