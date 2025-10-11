@@ -47,6 +47,7 @@ class User(BaseModel):
     total_earnings: float = 0.0
     pending_earnings: float = 0.0
     credited_earnings: float = 0.0
+    account_balance: float = 0.0  # Individual balance managed by admin
 
 class UserCreate(BaseModel):
     username: str
