@@ -674,7 +674,8 @@ async def get_dashboard_stats(current_user: User = Depends(get_current_user)):
             "accepted_assignments": accepted_assignments,
             "pending_earnings": user.get("pending_earnings", 0),
             "credited_earnings": user.get("credited_earnings", 0),
-            "total_earnings": user.get("total_earnings", 0)
+            "total_earnings": user.get("total_earnings", 0),
+            "account_balance": user.get("account_balance", 0)
         }
 
 @api_router.post("/system/portal-toggle")
