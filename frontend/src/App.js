@@ -1056,6 +1056,10 @@ function ReferralLinkCard({ referralCode }) {
 // Admin Component Stubs (basic implementations)
 function AdminMemberCard({ member, onUpdate }) {
   const [showNetwork, setShowNetwork] = useState(false);
+  const [showInstallmentDialog, setShowInstallmentDialog] = useState(false);
+  const [installmentNumber, setInstallmentNumber] = useState('');
+  const [installmentAmount, setInstallmentAmount] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const markRegistrationPaid = async () => {
     try {
@@ -1066,6 +1070,34 @@ function AdminMemberCard({ member, onUpdate }) {
       toast.error('Failed to update registration status');
     }
   };
+
+  const recordInstallment = async () => {
+    if (!installmentNumber || !installmentAmount) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/admin/installment-payment/${member.id}`, {
+        user_id: member.id,
+        installment_number: parseInt(installmentNumber),
+        amount: parseFloat(installmentAmount)
+      });
+      toast.success('Installment recorded successfully');
+      setShowInstallmentDialog(false);
+      setInstallmentNumber('');
+      setInstallmentAmount('');
+      onUpdate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to record installment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const totalInstallments = member.registration_installments?.length || 0;
+  const totalPaid = member.total_installments_paid || 0;
 
   return (
     <Card>
@@ -1094,6 +1126,36 @@ function AdminMemberCard({ member, onUpdate }) {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Installment Payment Section */}
+          <div className="border-t pt-3">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-sm">
+                <span className="font-medium">Installments:</span> {totalInstallments}/10
+                <span className="text-gray-500 ml-2">
+                  (₹{totalPaid.toFixed(2)} paid)
+                </span>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setShowInstallmentDialog(true)}
+              >
+                <CreditCard className="w-4 h-4 mr-1" />
+                Add Installment
+              </Button>
+            </div>
+            
+            {totalInstallments > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {member.registration_installments?.map((amount, idx) => (
+                  <Badge key={idx} variant="secondary" className="text-xs">
+                    #{idx + 1}: ₹{amount}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Show downline members */}
@@ -1133,6 +1195,63 @@ function AdminMemberCard({ member, onUpdate }) {
           )}
         </div>
       </CardContent>
+
+      {/* Installment Payment Dialog */}
+      <Dialog open={showInstallmentDialog} onOpenChange={setShowInstallmentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Installment Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="installmentNumber">Installment Number (1-10)</Label>
+              <Input
+                id="installmentNumber"
+                type="number"
+                min="1"
+                max="10"
+                value={installmentNumber}
+                onChange={(e) => setInstallmentNumber(e.target.value)}
+                placeholder="Enter installment number"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="installmentAmount">Amount (₹)</Label>
+              <Input
+                id="installmentAmount"
+                type="number"
+                step="0.01"
+                value={installmentAmount}
+                onChange={(e) => setInstallmentAmount(e.target.value)}
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <div className="text-sm text-gray-600">
+              <p>Current total: ₹{totalPaid.toFixed(2)}</p>
+              <p>Remaining: ₹{(500 - totalPaid).toFixed(2)}</p>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowInstallmentDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={recordInstallment} 
+                disabled={submitting}
+                className="flex-1"
+              >
+                {submitting ? 'Recording...' : 'Record Payment'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
