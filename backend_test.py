@@ -416,7 +416,8 @@ class MLMPortalAPITester:
                 "withdrawal/request",
                 200,  # Should succeed if member has 5 referrals
                 data=withdrawal_data,
-                token=self.member_token
+                token=self.member_token,
+                form_data=True
             )
             
             if not success1:
