@@ -316,45 +316,77 @@ class MLMPortalAPITester:
         
         return success and success2 and success3
 
-    def test_create_assignment(self):
-        """Test creating work assignment with file attachment"""
+    def test_daily_work_report_list(self):
+        """Test daily work report list API"""
         print("\n" + "="*50)
-        print("TESTING WORK ASSIGNMENT CREATION")
+        print("TESTING DAILY WORK REPORT LIST")
         print("="*50)
         
-        if not self.employee_id:
-            print("❌ No employee ID available for assignment")
-            return False
-        
-        # Create a test file
-        test_file_content = b"This is a test assignment file content"
-        
-        deadline = (datetime.now() + timedelta(days=7)).isoformat()
-        
-        form_data = {
-            'title': 'Test Assignment',
-            'description': 'This is a test assignment with file attachment',
-            'assigned_to': self.employee_id,
-            'deadline': deadline
-        }
-        
-        files = {
-            'file': ('test_assignment.txt', io.BytesIO(test_file_content), 'text/plain')
-        }
-        
-        success, response = self.run_test(
-            "Admin Create Assignment",
-            "POST",
-            "assignments",
+        # Test admin viewing all reports
+        success1, response1 = self.run_test(
+            "Admin Get All Daily Work Reports",
+            "GET",
+            "daily-work-reports",
             200,
-            data=form_data,
-            files=files
+            token=self.admin_token
         )
         
-        if success and isinstance(response, dict) and 'id' in response:
-            self.assignment_id = response['id']
-            print(f"   Assignment created with ID: {self.assignment_id}")
-        return success
+        if success1 and isinstance(response1, list):
+            print(f"   ✅ Admin sees {len(response1)} reports")
+            for report in response1:
+                print(f"   - {report.get('date')} | {report.get('user_name', 'Unknown')} | {report.get('class_name', 'Unknown')}")
+        
+        # Test member viewing only their reports
+        success2, response2 = self.run_test(
+            "Member Get Own Daily Work Reports",
+            "GET",
+            "daily-work-reports",
+            200,
+            token=self.member_token
+        )
+        
+        if success2 and isinstance(response2, list):
+            print(f"   ✅ Member sees {len(response2)} own reports")
+            for report in response2:
+                print(f"   - {report.get('date')} | {report.get('class_name', 'Unknown')} | {report.get('subject', 'Unknown')}")
+        
+        return success1 and success2
+
+    def test_daily_work_report_excel_export(self):
+        """Test daily work report Excel export API"""
+        print("\n" + "="*50)
+        print("TESTING DAILY WORK REPORT EXCEL EXPORT")
+        print("="*50)
+        
+        # Test admin Excel export
+        success, response = self.run_test(
+            "Admin Export Daily Work Reports Excel",
+            "GET",
+            "admin/daily-work-reports/export",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            print("   ✅ Excel export successful")
+            if isinstance(response, bytes) or len(str(response)) > 1000:
+                print("   ✅ Response appears to be Excel file data")
+            else:
+                print(f"   ⚠️  Response might not be Excel file: {str(response)[:100]}")
+        
+        # Test member access (should be forbidden)
+        success2, response2 = self.run_test(
+            "Member Try Excel Export (Should Fail)",
+            "GET",
+            "admin/daily-work-reports/export",
+            403,
+            token=self.member_token
+        )
+        
+        if success2:
+            print("   ✅ Member correctly denied access to Excel export")
+        
+        return success and success2
 
     def test_get_assignments_admin(self):
         """Test getting assignments as admin"""
