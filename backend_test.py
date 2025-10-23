@@ -621,39 +621,13 @@ class MLMPortalAPITester:
         return self.test_results
 
 def main():
-    print("🚀 Starting Task Tracker API Testing")
+    print("🚀 Starting Life Line's MLM Portal API Testing")
     print("="*60)
     
-    tester = TaskTrackerAPITester()
-    
-    # Test sequence
-    tests = [
-        tester.test_system_initialization,
-        tester.test_admin_login,
-        tester.test_dashboard_stats_admin,
-        tester.test_create_employee,
-        tester.test_get_employees,
-        tester.test_employee_login,
-        tester.test_dashboard_stats_employee,
-        tester.test_create_assignment,
-        tester.test_get_assignments_admin,
-        tester.test_get_assignments_employee,
-        tester.test_submit_assignment,
-        tester.test_time_tracking,
-        tester.test_logout_employee,
-        tester.test_logout_admin
-    ]
+    tester = MLMPortalAPITester()
     
     # Run all tests
-    for test in tests:
-        try:
-            test()
-        except Exception as e:
-            print(f"❌ Test failed with exception: {str(e)}")
-            tester.failed_tests.append({
-                "test": test.__name__,
-                "error": str(e)
-            })
+    test_results = tester.run_all_tests()
     
     # Print final results
     print("\n" + "="*60)
@@ -664,8 +638,14 @@ def main():
     print(f"Tests failed: {tester.tests_run - tester.tests_passed}")
     print(f"Success rate: {(tester.tests_passed / tester.tests_run * 100):.1f}%" if tester.tests_run > 0 else "0%")
     
+    # Print test results by category
+    print("\n📋 TEST RESULTS BY CATEGORY:")
+    for test_name, result in test_results.items():
+        status = "✅ PASSED" if result else "❌ FAILED"
+        print(f"  {test_name}: {status}")
+    
     if tester.failed_tests:
-        print("\n❌ FAILED TESTS:")
+        print("\n❌ FAILED TESTS DETAILS:")
         for i, failure in enumerate(tester.failed_tests, 1):
             print(f"{i}. {failure.get('test', 'Unknown')}")
             if 'error' in failure:
@@ -674,7 +654,15 @@ def main():
                 print(f"   Expected: {failure['expected']}, Got: {failure['actual']}")
                 print(f"   Response: {failure.get('response', 'N/A')}")
     
-    return 0 if tester.tests_passed == tester.tests_run else 1
+    # Return summary for test_result.md update
+    return {
+        "total_tests": tester.tests_run,
+        "passed_tests": tester.tests_passed,
+        "failed_tests": tester.tests_run - tester.tests_passed,
+        "success_rate": (tester.tests_passed / tester.tests_run * 100) if tester.tests_run > 0 else 0,
+        "test_results": test_results,
+        "failed_details": tester.failed_tests
+    }
 
 if __name__ == "__main__":
     sys.exit(main())
