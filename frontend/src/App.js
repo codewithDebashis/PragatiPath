@@ -549,15 +549,11 @@ function MemberDashboard() {
           </TabsContent>
 
           <TabsContent value="dailywork" className="space-y-4">
-            <h2 className="text-xl font-semibold">Daily Work Report</h2>
-            <div className="space-y-4">
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-gray-600">Daily work report feature will be implemented here.</p>
-                  <p className="text-sm text-gray-500 mt-2">This section will show your daily work progress, completed tasks, and performance metrics.</p>
-                </CardContent>
-              </Card>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Daily Work Report</h2>
+              <DailyWorkReportDialog onReportSubmitted={fetchDashboardData} />
             </div>
+            <DailyWorkReports />
           </TabsContent>
 
           <TabsContent value="transactions" className="space-y-4">
