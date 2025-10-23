@@ -132,9 +132,12 @@ class MLMPortalAPITester:
         print("TESTING MEMBER REGISTRATION")
         print("="*50)
         
-        # Create first member (will be used for referrals)
+        # Create first member (will be used for referrals) - use timestamp to ensure unique numbers
+        import time
+        timestamp = str(int(time.time()))[-4:]  # Last 4 digits of timestamp
+        
         member1_data = {
-            "mobile_number": "8888888881",
+            "mobile_number": f"8888{timestamp}01",
             "full_name": "Rajesh Kumar",
             "upi_address": "rajesh@paytm",
             "password": "member123"
