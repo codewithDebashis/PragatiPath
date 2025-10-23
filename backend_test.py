@@ -172,7 +172,7 @@ class MLMPortalAPITester:
         # Create additional members for referral testing
         for i in range(2, 7):  # Create 5 more members (total 6)
             member_data = {
-                "mobile_number": f"888888888{i}",
+                "mobile_number": f"8888{timestamp}{i:02d}",
                 "full_name": f"Test Member {i}",
                 "upi_address": f"member{i}@paytm",
                 "password": "member123",
