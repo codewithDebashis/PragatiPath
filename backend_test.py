@@ -20,18 +20,21 @@ class MLMPortalAPITester:
         self.failed_tests = []
         self.test_results = {}
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, files=None, headers=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, files=None, headers=None, token=None):
         """Run a single API test"""
         url = f"{self.base_url}/{endpoint}"
-        test_headers = {'Content-Type': 'application/json'}
+        test_headers = {}
         
         if headers:
             test_headers.update(headers)
         
-        if self.admin_token and 'admin' in name.lower():
+        # Set authorization token
+        if token:
+            test_headers['Authorization'] = f'Bearer {token}'
+        elif self.admin_token and ('admin' in name.lower() or 'Admin' in name):
             test_headers['Authorization'] = f'Bearer {self.admin_token}'
-        elif self.employee_token and 'employee' in name.lower():
-            test_headers['Authorization'] = f'Bearer {self.employee_token}'
+        elif self.member_token and ('member' in name.lower() or 'Member' in name):
+            test_headers['Authorization'] = f'Bearer {self.member_token}'
 
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
@@ -42,12 +45,13 @@ class MLMPortalAPITester:
                 response = requests.get(url, headers=test_headers)
             elif method == 'POST':
                 if files:
-                    # Remove Content-Type for multipart/form-data
-                    if 'Content-Type' in test_headers:
-                        del test_headers['Content-Type']
+                    # Don't set Content-Type for multipart/form-data
                     response = requests.post(url, data=data, files=files, headers=test_headers)
-                else:
+                elif data and not files:
+                    test_headers['Content-Type'] = 'application/json'
                     response = requests.post(url, json=data, headers=test_headers)
+                else:
+                    response = requests.post(url, headers=test_headers)
 
             print(f"   Status: {response.status_code}")
             
@@ -61,12 +65,12 @@ class MLMPortalAPITester:
                     return success, response.text
             else:
                 print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                print(f"   Response: {response.text[:200]}...")
+                print(f"   Response: {response.text[:300]}...")
                 self.failed_tests.append({
                     "test": name,
                     "expected": expected_status,
                     "actual": response.status_code,
-                    "response": response.text[:200]
+                    "response": response.text[:300]
                 })
                 try:
                     return success, response.json()
