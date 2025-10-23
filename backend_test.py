@@ -6,7 +6,7 @@ import base64
 import io
 
 class TaskTrackerAPITester:
-    def __init__(self, base_url="https://task-tracker-270.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://mlm-network-9.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.admin_token = None
         self.employee_token = None
