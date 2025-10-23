@@ -531,8 +531,9 @@ function MemberDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="work" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="work">Work Assignments</TabsTrigger>
+            <TabsTrigger value="dailywork">Daily Work Report</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
             <TabsTrigger value="network">My Network</TabsTrigger>
             <TabsTrigger value="earnings">Daily Earnings</TabsTrigger>
