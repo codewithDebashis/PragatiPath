@@ -492,6 +492,7 @@ function MemberDashboard() {
             onClick={() => setShowWithdrawalDialog(true)}
             disabled={!stats.can_withdraw || (stats.current_balance || 0) < 100}
             className="bg-green-600 hover:bg-green-700"
+            title={!stats.can_withdraw ? `You need ${5 - (stats.direct_referrals || 0)} more joiner${5 - (stats.direct_referrals || 0) !== 1 ? 's' : ''} to request withdrawal` : ''}
           >
             Request Withdrawal
           </Button>
