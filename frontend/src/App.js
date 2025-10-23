@@ -1098,9 +1098,9 @@ function CreateWorkDialog({ onWorkCreated }) {
       
       await axios.post(`${API}/assignments`, submitData);
       
-      toast.success('Work assignment created successfully!');
+      toast.success(response.data.message);
       setOpen(false);
-      setFormData({ title: '', description: '', amount: '', deadline: new Date() });
+      setFormData({ title: '', description: '', amount: '', deadline: new Date(), assigned_to: '' });
       setFile(null);
       onWorkCreated();
     } catch (error) {
