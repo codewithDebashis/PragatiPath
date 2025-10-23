@@ -101,3 +101,164 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Complete the Life Line's MLM Portal with following features:
+  1. Withdrawal prerequisites - Display messages to members about needing 5 joinees
+  2. Installment payment tracking - Admin can enter/track 10 installments for registration fees
+  3. Daily work report - Members submit reports with class, subject, details columns
+  4. Daily work report export - Admin can download reports as Excel file
+  5. Multi-file type support - Support image, pdf, video, ppt, excel, collage file types
+
+backend:
+  - task: "Withdrawal prerequisites API with 5 joinees check"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend endpoint already implemented at line 603-641. Checks direct_referrals count and returns appropriate error messages."
+
+  - task: "Installment payment tracking API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend endpoint already implemented at line 1083-1135. Admin can record installments, updates user's can_work status after first installment."
+
+  - task: "Daily work report submit API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend endpoint already implemented at line 1137-1181. Members can submit reports with date, class_name, subject, details fields."
+
+  - task: "Daily work report list API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend endpoint already implemented at line 1183-1208. Admin sees all reports, members see only their own."
+
+  - task: "Daily work report Excel export API"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend endpoint already implemented at line 1210-1256. Uses pandas to create Excel file with all report data."
+
+  - task: "Multi-file type support in assignments"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend already supports multiple file types (lines 454-459, 529-534). Allows: .jpg, .jpeg, .png, .gif, .pdf, .doc, .docx, .ppt, .pptx, .xls, .xlsx, .mp4, .avi, .mov, .wmv"
+
+frontend:
+  - task: "DailyWorkReportDialog component"
+    implemented: false
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Component is referenced at line 555 but not defined. Need to create form component with date picker, class, subject, and details fields."
+
+  - task: "DailyWorkReports component"
+    implemented: false
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Component is referenced at line 557 but not defined. Need to create component to display list of daily work reports."
+
+  - task: "Admin installment payment tracking UI"
+    implemented: false
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "No UI exists for admin to record installment payments. Need to add dialog/form in AdminMemberCard component."
+
+  - task: "Admin daily work reports Excel download"
+    implemented: false
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need to add download button in admin dashboard to export daily work reports as Excel."
+
+  - task: "Withdrawal request button tooltip/message"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Already implemented at line 495. Shows tooltip with message about needing joinees when button is disabled."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Daily work report backend APIs"
+    - "Installment payment API"
+    - "Withdrawal prerequisites API"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Initial test file created. Backend APIs are already implemented. Now implementing missing frontend components: DailyWorkReportDialog, DailyWorkReports, Admin installment tracking UI, and Excel download button. Will test backend first, then frontend."
