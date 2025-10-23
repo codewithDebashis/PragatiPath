@@ -274,6 +274,10 @@ async def register_user(user_data: MLMUserCreate):
         referrer = await db.mlm_users.find_one({"referral_code": user_data.referred_by_code})
         if not referrer:
             raise HTTPException(status_code=400, detail="Invalid referral code")
+        
+        # Prevent self-referral - user cannot refer themselves
+        if referrer["mobile_number"] == user_data.mobile_number:
+            raise HTTPException(status_code=400, detail="You cannot use your own referral code")
     
     # Create user
     hashed_password = get_password_hash(user_data.password)
