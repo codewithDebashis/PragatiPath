@@ -274,7 +274,8 @@ class MLMPortalAPITester:
             "daily-work-report",
             200,
             data=report_data,
-            token=self.member_token
+            token=self.member_token,
+            form_data=True
         )
         
         if success:
