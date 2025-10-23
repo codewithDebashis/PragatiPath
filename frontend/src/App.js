@@ -1063,10 +1063,27 @@ function CreateWorkDialog({ onWorkCreated }) {
     title: '',
     description: '',
     amount: '',
-    deadline: new Date()
+    deadline: new Date(),
+    assigned_to: ''
   });
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState([]);
+
+  useEffect(() => {
+    if (open) {
+      fetchMembers();
+    }
+  }, [open]);
+
+  const fetchMembers = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/users`);
+      setMembers(response.data);
+    } catch (error) {
+      console.error('Failed to fetch members:', error);
+    }
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
