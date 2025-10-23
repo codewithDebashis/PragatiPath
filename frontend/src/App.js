@@ -111,7 +111,31 @@ function LoginRegister() {
     referred_by_code: ''
   });
   const [loading, setLoading] = useState(false);
+  const [referrerInfo, setReferrerInfo] = useState(null);
   const { login, register } = useAuth();
+
+  // Check for referral code in URL when component mounts
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    
+    if (refCode) {
+      setRegisterData(prev => ({ ...prev, referred_by_code: refCode }));
+      setIsLogin(false); // Switch to registration mode
+      validateReferralCode(refCode);
+    }
+  }, []);
+
+  const validateReferralCode = async (code) => {
+    try {
+      const response = await axios.get(`${API}/referral/validate/${code}`);
+      setReferrerInfo(response.data);
+      toast.success(`Joining under ${response.data.referrer_name}'s network!`);
+    } catch (error) {
+      toast.error('Invalid referral link');
+      setReferrerInfo(null);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
