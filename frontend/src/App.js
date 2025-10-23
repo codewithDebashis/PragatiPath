@@ -283,9 +283,21 @@ function LoginRegister() {
                   type="text"
                   placeholder="Enter referral code"
                   value={registerData.referred_by_code}
-                  onChange={(e) => setRegisterData({...registerData, referred_by_code: e.target.value})}
+                  onChange={(e) => {
+                    setRegisterData({...registerData, referred_by_code: e.target.value});
+                    if (e.target.value) {
+                      validateReferralCode(e.target.value);
+                    } else {
+                      setReferrerInfo(null);
+                    }
+                  }}
                   className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
                 />
+                {referrerInfo && (
+                  <div className="bg-green-500/20 border border-green-500/30 rounded p-2 text-green-200 text-sm">
+                    ✅ Joining under: <strong>{referrerInfo.referrer_name}</strong> ({referrerInfo.referrer_mobile})
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reg-password" className="text-white">Password</Label>
