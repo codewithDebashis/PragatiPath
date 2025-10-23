@@ -543,97 +543,82 @@ class MLMPortalAPITester:
         
         return success1
 
-    def test_dashboard_stats_employee(self):
-        """Test employee dashboard stats"""
-        success, response = self.run_test(
-            "Employee Dashboard Stats",
+    def test_dashboard_stats(self):
+        """Test dashboard stats for both admin and member"""
+        print("\n" + "="*50)
+        print("TESTING DASHBOARD STATS")
+        print("="*50)
+        
+        # Test admin dashboard stats
+        success1, response1 = self.run_test(
+            "Admin Dashboard Stats",
             "GET",
             "dashboard/stats",
-            200
-        )
-        
-        if success and isinstance(response, dict):
-            expected_keys = ['total_assignments', 'pending_assignments', 'submitted_assignments']
-            for key in expected_keys:
-                if key not in response:
-                    print(f"❌ Missing key in employee stats: {key}")
-                    return False
-            print(f"   Employee Stats: {response}")
-        return success
-
-    def test_submit_assignment(self):
-        """Test submitting assignment with file"""
-        print("\n" + "="*50)
-        print("TESTING ASSIGNMENT SUBMISSION")
-        print("="*50)
-        
-        if not self.assignment_id:
-            print("❌ No assignment ID available for submission")
-            return False
-        
-        # Create a test submission file
-        submission_content = b"This is my assignment submission"
-        
-        form_data = {
-            'notes': 'This is my submission with notes'
-        }
-        
-        files = {
-            'file': ('submission.txt', io.BytesIO(submission_content), 'text/plain')
-        }
-        
-        success, response = self.run_test(
-            "Employee Submit Assignment",
-            "POST",
-            f"assignments/{self.assignment_id}/submit",
             200,
-            data=form_data,
-            files=files
+            token=self.admin_token
         )
-        return success
-
-    def test_time_tracking(self):
-        """Test time tracking functionality"""
-        print("\n" + "="*50)
-        print("TESTING TIME TRACKING")
-        print("="*50)
         
-        success, response = self.run_test(
-            "Admin Get Time Tracking",
+        if success1 and isinstance(response1, dict):
+            print(f"   ✅ Admin stats retrieved")
+            print(f"   Total users: {response1.get('total_users', 0)}")
+            print(f"   Active assignments: {response1.get('active_assignments', 0)}")
+            print(f"   Pending submissions: {response1.get('pending_submissions', 0)}")
+        
+        # Test member dashboard stats
+        success2, response2 = self.run_test(
+            "Member Dashboard Stats",
             "GET",
-            "time-tracking",
-            200
+            "dashboard/stats",
+            200,
+            token=self.member_token
         )
         
-        if success and isinstance(response, dict):
-            print(f"   Time tracking data for {len(response)} users")
-            for user_id, data in response.items():
-                print(f"   - {data.get('user_name', 'Unknown')}: {len(data.get('daily_hours', {}))} days tracked")
-        return success
-
-    def test_logout_employee(self):
-        """Test employee logout"""
-        print("\n" + "="*50)
-        print("TESTING LOGOUT FUNCTIONALITY")
-        print("="*50)
+        if success2 and isinstance(response2, dict):
+            print(f"   ✅ Member stats retrieved")
+            print(f"   Current balance: ₹{response2.get('current_balance', 0)}")
+            print(f"   Direct referrals: {response2.get('direct_referrals', 0)}")
+            print(f"   Can withdraw: {response2.get('can_withdraw', False)}")
         
-        success, response = self.run_test(
-            "Employee Logout",
-            "POST",
-            "auth/logout",
-            200
-        )
-        return success
+        return success1 and success2
 
-    def test_logout_admin(self):
-        """Test admin logout"""
-        success, response = self.run_test(
-            "Admin Logout",
-            "POST",
-            "auth/logout",
-            200
-        )
-        return success
+    def run_all_tests(self):
+        """Run all MLM Portal tests in sequence"""
+        print("🚀 Starting Life Line's MLM Portal API Testing")
+        print("="*60)
+        
+        # Test sequence for MLM Portal
+        tests = [
+            ("System Initialization", self.test_system_initialization),
+            ("Admin Authentication", self.test_admin_login),
+            ("Member Registration & Setup", self.test_create_test_members),
+            ("Installment Payment Tracking", self.test_installment_payment_tracking),
+            ("Daily Work Report Submit", self.test_daily_work_report_submit),
+            ("Daily Work Report List", self.test_daily_work_report_list),
+            ("Daily Work Report Excel Export", self.test_daily_work_report_excel_export),
+            ("Withdrawal Prerequisites", self.test_withdrawal_prerequisites),
+            ("Multi-file Type Support", self.test_multi_file_type_support),
+            ("Dashboard Stats", self.test_dashboard_stats)
+        ]
+        
+        # Run all tests and track results
+        for test_name, test_func in tests:
+            try:
+                print(f"\n{'='*20} {test_name} {'='*20}")
+                result = test_func()
+                self.test_results[test_name] = result
+                if result:
+                    print(f"✅ {test_name} - PASSED")
+                else:
+                    print(f"❌ {test_name} - FAILED")
+            except Exception as e:
+                print(f"❌ {test_name} - ERROR: {str(e)}")
+                self.test_results[test_name] = False
+                self.failed_tests.append({
+                    "test": test_name,
+                    "error": str(e)
+                })
+        
+        return self.test_results
 
 def main():
     print("🚀 Starting Task Tracker API Testing")
