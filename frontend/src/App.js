@@ -1508,6 +1508,192 @@ function AdminSettingsCard({ settings, onUpdate }) {
   );
 }
 
+// Daily Work Report Dialog Component
+function DailyWorkReportDialog({ onReportSubmitted }) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(new Date());
+  const [className, setClassName] = useState('');
+  const [subject, setSubject] = useState('');
+  const [details, setDetails] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!className || !subject || !details) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const formData = new URLSearchParams();
+      formData.append('date', format(date, 'yyyy-MM-dd'));
+      formData.append('class_name', className);
+      formData.append('subject', subject);
+      formData.append('details', details);
+
+      await axios.post(`${API}/daily-work-report`, formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+
+      toast.success('Daily work report submitted successfully');
+      setOpen(false);
+      setClassName('');
+      setSubject('');
+      setDetails('');
+      if (onReportSubmitted) onReportSubmitted();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to submit report');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <FileText className="w-4 h-4 mr-2" />
+          Submit Daily Report
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Submit Daily Work Report</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="date">Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {date ? format(date, 'PPP') : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="className">Class</Label>
+            <Input
+              id="className"
+              value={className}
+              onChange={(e) => setClassName(e.target.value)}
+              placeholder="e.g., Grade 10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="subject">Subject</Label>
+            <Input
+              id="subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="e.g., Mathematics"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="details">Work Details</Label>
+            <Textarea
+              id="details"
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+              placeholder="Describe the work completed today..."
+              rows={4}
+            />
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button variant="outline" onClick={() => setOpen(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting} className="flex-1">
+              {submitting ? 'Submitting...' : 'Submit Report'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Daily Work Reports List Component
+function DailyWorkReports() {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const fetchReports = async () => {
+    try {
+      const response = await axios.get(`${API}/daily-work-reports`);
+      setReports(response.data);
+    } catch (error) {
+      toast.error('Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-4">Loading reports...</div>;
+  }
+
+  if (reports.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-gray-500">
+          No daily work reports submitted yet
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {reports.map((report) => (
+        <Card key={report.id}>
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{report.date}</Badge>
+                  <span className="font-medium">{report.class_name}</span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <strong>Subject:</strong> {report.subject}
+                </div>
+                <div className="text-sm text-gray-700 mt-2">
+                  <strong>Details:</strong> {report.details}
+                </div>
+                {report.user_name && (
+                  <div className="text-xs text-gray-500 mt-2">
+                    Submitted by: {report.user_name} ({report.user_mobile})
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 // Main App Component
 function App() {
   return (
