@@ -496,7 +496,37 @@ function MemberDashboard() {
             Request Withdrawal
           </Button>
           
-          <ReferralLinkCard referralCode={stats.referral_code} />
+          <Card className="flex-1 max-w-lg">
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Your Referral Code</p>
+                  <p className="text-xl font-bold text-blue-600">{stats.referral_code}</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Share this link to earn commissions:</Label>
+                  <div className="flex space-x-2">
+                    <Input 
+                      value={`${window.location.origin}?ref=${stats.referral_code}`}
+                      readOnly 
+                      className="text-xs bg-gray-50"
+                    />
+                    <Button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}?ref=${stats.referral_code}`);
+                        toast.success('Referral link copied!');
+                      }}
+                      size="sm"
+                      className="bg-blue-600"
+                    >
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content Tabs */}
