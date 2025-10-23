@@ -458,7 +458,7 @@ class MLMPortalAPITester:
                 "POST",
                 "auth/login",
                 200,
-                data={"mobile_number": "7777777777", "password": "member123"}
+                data={"mobile_number": f"7777{timestamp2}777", "password": "member123"}
             )
             
             if login_success and 'access_token' in login_response:
