@@ -188,40 +188,133 @@ class MLMPortalAPITester:
         
         return success1
 
-    def test_get_employees(self):
-        """Test getting employees list"""
-        success, response = self.run_test(
-            "Admin Get Employees",
-            "GET",
-            "users",
-            200
-        )
-        
-        if success and isinstance(response, list):
-            print(f"   Found {len(response)} employees")
-            for emp in response:
-                print(f"   - {emp.get('full_name', 'Unknown')} ({emp.get('username', 'Unknown')})")
-        return success
-
-    def test_employee_login(self):
-        """Test employee login"""
+    def test_installment_payment_tracking(self):
+        """Test installment payment tracking API"""
         print("\n" + "="*50)
-        print("TESTING EMPLOYEE AUTHENTICATION")
+        print("TESTING INSTALLMENT PAYMENT TRACKING")
         print("="*50)
         
+        if not self.member_id:
+            print("❌ No member ID available for installment testing")
+            return False
+        
+        # Test recording first installment
+        installment_data = {
+            "user_id": self.member_id,
+            "installment_number": 1,
+            "amount": 100.0
+        }
+        
         success, response = self.run_test(
-            "Employee Login",
+            "Admin Record First Installment",
             "POST",
-            "auth/login",
+            f"admin/installment-payment/{self.member_id}",
             200,
-            data={"username": "testemployee", "password": "testpass123"}
+            data=installment_data
         )
         
-        if success and isinstance(response, dict) and 'access_token' in response:
-            self.employee_token = response['access_token']
-            print(f"   Employee token obtained: {self.employee_token[:20]}...")
-            return True
-        return False
+        if success and isinstance(response, dict):
+            print(f"   ✅ First installment recorded")
+            print(f"   Total paid: ₹{response.get('total_paid', 0)}")
+            print(f"   Can work: {response.get('can_work', False)}")
+            print(f"   Registration complete: {response.get('registration_complete', False)}")
+            
+            # Verify user can_work is now true
+            if response.get('can_work'):
+                print("   ✅ User can now work after first installment")
+            else:
+                print("   ❌ User should be able to work after first installment")
+                return False
+        
+        # Test recording more installments to reach 500
+        for i in range(2, 6):  # Installments 2-5
+            installment_data = {
+                "user_id": self.member_id,
+                "installment_number": i,
+                "amount": 100.0
+            }
+            
+            success2, response2 = self.run_test(
+                f"Admin Record Installment {i}",
+                "POST",
+                f"admin/installment-payment/{self.member_id}",
+                200,
+                data=installment_data
+            )
+            
+            if success2 and i == 5:  # After 5th installment (500 total)
+                print(f"   Total after 5 installments: ₹{response2.get('total_paid', 0)}")
+                if response2.get('registration_complete'):
+                    print("   ✅ Registration fee fully paid")
+                else:
+                    print("   ❌ Registration should be complete after ₹500")
+        
+        return success
+
+    def test_daily_work_report_submit(self):
+        """Test daily work report submission API"""
+        print("\n" + "="*50)
+        print("TESTING DAILY WORK REPORT SUBMISSION")
+        print("="*50)
+        
+        # Test submission by member who can work
+        report_data = {
+            "date": "2025-01-15",
+            "class_name": "Class 10th Science",
+            "subject": "Physics - Light and Reflection",
+            "details": "Taught concepts of reflection, refraction, and lens. Conducted practical experiments with mirrors and lenses. Students showed good understanding of the topic."
+        }
+        
+        success, response = self.run_test(
+            "Member Submit Daily Work Report",
+            "POST",
+            "daily-work-report",
+            200,
+            data=report_data,
+            token=self.member_token
+        )
+        
+        if success:
+            print("   ✅ Daily work report submitted successfully")
+        
+        # Test updating existing report for same date
+        updated_report_data = {
+            "date": "2025-01-15",
+            "class_name": "Class 10th Science",
+            "subject": "Physics - Light and Reflection (Updated)",
+            "details": "Updated: Taught concepts of reflection, refraction, and lens. Conducted practical experiments with mirrors and lenses. Added extra examples for better understanding."
+        }
+        
+        success2, response2 = self.run_test(
+            "Member Update Daily Work Report",
+            "POST",
+            "daily-work-report",
+            200,
+            data=updated_report_data,
+            token=self.member_token
+        )
+        
+        if success2:
+            print("   ✅ Daily work report updated successfully")
+        
+        # Test submission for different date
+        report_data2 = {
+            "date": "2025-01-16",
+            "class_name": "Class 9th Mathematics",
+            "subject": "Algebra - Linear Equations",
+            "details": "Explained solving linear equations in one variable. Practiced various problem types. Students completed worksheet exercises."
+        }
+        
+        success3, response3 = self.run_test(
+            "Member Submit Another Daily Report",
+            "POST",
+            "daily-work-report",
+            200,
+            data=report_data2,
+            token=self.member_token
+        )
+        
+        return success and success2 and success3
 
     def test_create_assignment(self):
         """Test creating work assignment with file attachment"""
