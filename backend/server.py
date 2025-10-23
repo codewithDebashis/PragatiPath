@@ -591,9 +591,15 @@ async def request_withdrawal(
 ):
     settings = await get_mlm_settings()
     
-    # Check eligibility
+    # Check direct referrals count
+    direct_referrals_count = len(current_user.direct_referrals)
+    needed_referrals = 5 - direct_referrals_count
+    
     if not current_user.can_withdraw:
-        raise HTTPException(status_code=400, detail="You need 5 direct referrals to withdraw")
+        if direct_referrals_count == 0:
+            raise HTTPException(status_code=400, detail="You need 5 joiners to request withdrawal")
+        else:
+            raise HTTPException(status_code=400, detail=f"You need {needed_referrals} more joiner{'s' if needed_referrals > 1 else ''} to request withdrawal")
     
     if amount < settings.minimum_withdrawal:
         raise HTTPException(status_code=400, detail=f"Minimum withdrawal amount is ₹{settings.minimum_withdrawal}")
