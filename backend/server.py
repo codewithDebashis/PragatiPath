@@ -50,6 +50,11 @@ class MLMUser(BaseModel):
     is_active: bool = True
     registration_fee_paid: bool = False
     
+    # Registration fee installments
+    registration_installments: List[float] = []  # amounts paid in installments
+    total_installments_paid: float = 0.0
+    can_work: bool = False  # True after first installment
+    
     # Financial tracking
     total_earnings: float = 0.0
     pending_earnings: float = 0.0
