@@ -804,6 +804,34 @@ function AdminDashboard() {
             <h2 className="text-xl font-semibold">Network Overview</h2>
             <p className="text-gray-600">Network visualization will be implemented here</p>
           </TabsContent>
+
+          <TabsContent value="dailyreports" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Daily Work Reports</h2>
+              <Button onClick={async () => {
+                try {
+                  const response = await axios.get(`${API}/admin/daily-work-reports/export`, {
+                    responseType: 'blob'
+                  });
+                  const url = window.URL.createObjectURL(new Blob([response.data]));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', 'daily_work_reports.xlsx');
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+                  toast.success('Daily reports downloaded successfully');
+                } catch (error) {
+                  toast.error('Failed to download reports');
+                }
+              }}>
+                <Download className="w-4 h-4 mr-2" />
+                Download Excel
+              </Button>
+            </div>
+            <DailyWorkReports />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
