@@ -282,9 +282,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Daily work report backend APIs"
-    - "Installment payment API"
-    - "Withdrawal prerequisites API"
+    - "Frontend components testing"
+    - "End-to-end integration testing"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
