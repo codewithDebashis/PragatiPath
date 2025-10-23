@@ -7,13 +7,15 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.context import CryptContext
 import base64
 from bson import ObjectId
+import random
+import string
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,104 +28,111 @@ db = client[os.environ['DB_NAME']]
 # Security
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'lifeline-mlm-portal-secret-key')
 ALGORITHM = "HS256"
 
 # Create the main app
-app = FastAPI(title="Life Line's Work Portal")
+app = FastAPI(title="Life Line's MLM Work Portal")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Models
-class User(BaseModel):
+# MLM Models
+class MLMUser(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    username: str
-    email: str
-    role: str  # "admin" or "employee"
+    mobile_number: str
     full_name: str
+    upi_address: str
+    referral_code: str
+    referred_by: Optional[str] = None  # referral_code of referrer
+    role: str = "member"  # "admin" or "member"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = True
+    registration_fee_paid: bool = False
+    
+    # Financial tracking
     total_earnings: float = 0.0
     pending_earnings: float = 0.0
     credited_earnings: float = 0.0
-    account_balance: float = 0.0  # Individual balance managed by admin
+    total_withdrawn: float = 0.0
+    current_balance: float = 0.0
+    
+    # MLM specific
+    direct_referrals: List[str] = []  # list of user IDs
+    total_referrals: int = 0
+    can_withdraw: bool = False  # True when has 5+ direct referrals
+    level: int = 1
 
-class UserCreate(BaseModel):
-    username: str
-    email: str
-    password: str
+class MLMUserCreate(BaseModel):
+    mobile_number: str
     full_name: str
-    role: str = "employee"
+    upi_address: str
+    password: str
+    referred_by_code: Optional[str] = None
 
-class UserLogin(BaseModel):
-    username: str
+class MLMLogin(BaseModel):
+    mobile_number: str
     password: str
 
-class WorkAssignment(BaseModel):
+class MLMWorkAssignment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     description: str
-    assigned_to: str  # employee user id
-    assigned_by: str  # admin user id
-    deadline: datetime
-    resubmission_deadline: Optional[datetime] = None
-    amount: float = 0.0
-    attachment_name: Optional[str] = None
-    attachment_data: Optional[str] = None  # base64 encoded file
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    status: str = "pending"  # "pending", "submitted", "accepted", "rejected", "resubmitted"
-    review_comments: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
-    review_deadline_hours: int = 24
-
-class WorkAssignmentCreate(BaseModel):
-    title: str
-    description: str
-    assigned_to: str  # Can be employee ID or "all_employees"
-    deadline: str  # ISO format string
     amount: float
-    review_deadline_hours: int = 24
+    attachment_name: Optional[str] = None
+    attachment_data: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str  # admin user id
+    deadline: datetime
+    is_active: bool = True
 
-class EmployeeBalanceUpdate(BaseModel):
-    employee_id: str
-    new_balance: float
-
-class WorkSubmission(BaseModel):
+class MLMWorkSubmission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     assignment_id: str
-    submitted_by: str
+    user_id: str
     submission_file_name: Optional[str] = None
-    submission_file_data: Optional[str] = None  # base64 encoded
+    submission_file_data: Optional[str] = None
     notes: Optional[str] = None
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    is_resubmission: bool = False
+    status: str = "pending"  # "pending", "approved", "rejected"
+    admin_comments: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
 
-class ReviewSubmission(BaseModel):
-    action: str  # "accept" or "reject"
-    comments: Optional[str] = None
-    resubmission_hours: Optional[int] = 48
-
-class PaymentAction(BaseModel):
-    action: str  # "mark_paid" or "mark_unpaid"
-
-class TimeTrackingSession(BaseModel):
+class Transaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
-    start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    end_time: Optional[datetime] = None
-    duration_minutes: Optional[int] = None
-    date: str = Field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
+    type: str  # "earning", "commission", "withdrawal", "registration_fee"
+    amount: float
+    description: str
+    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: str = "completed"  # "pending", "completed", "rejected"
+    reference_id: Optional[str] = None  # assignment_id, withdrawal_id, etc.
 
-class SystemSettings(BaseModel):
+class WithdrawalRequest(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    portal_enabled: bool = True
+    user_id: str
+    amount: float
+    upi_address: str
+    requested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: str = "pending"  # "pending", "approved", "paid", "rejected"
+    processed_at: Optional[datetime] = None
+    processed_by: Optional[str] = None
+    admin_comments: Optional[str] = None
+
+class MLMSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    registration_fee: float = 500.0
+    minimum_withdrawal: float = 100.0
+    commission_l1: float = 5.0  # percentage
+    commission_l2: float = 3.0
+    commission_l3: float = 1.0
+    commission_l4: float = 1.0
+    commission_l5: float = 1.0
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: str
 
 # Helper functions
 def prepare_for_mongo(data):
-    """Convert datetime objects to ISO strings for MongoDB storage"""
     if isinstance(data, dict):
         for key, value in data.items():
             if isinstance(value, datetime):
@@ -131,9 +140,7 @@ def prepare_for_mongo(data):
     return data
 
 def parse_from_mongo(item):
-    """Convert ISO strings back to datetime objects and remove MongoDB ObjectId"""
     if isinstance(item, dict):
-        # Remove MongoDB's _id field to avoid ObjectId serialization issues
         if '_id' in item:
             del item['_id']
             
@@ -143,12 +150,7 @@ def parse_from_mongo(item):
                     item[key] = datetime.fromisoformat(value)
                 except:
                     pass
-            elif key == 'deadline' and isinstance(value, str):
-                try:
-                    item[key] = datetime.fromisoformat(value)
-                except:
-                    pass
-            elif key == 'resubmission_deadline' and isinstance(value, str):
+            elif key in ['deadline', 'date'] and isinstance(value, str):
                 try:
                     item[key] = datetime.fromisoformat(value)
                 except:
@@ -164,6 +166,9 @@ def get_password_hash(password):
 def create_access_token(data: dict):
     return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 
+def generate_referral_code():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
@@ -171,240 +176,264 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         
-        user = await db.users.find_one({"id": user_id})
+        user = await db.mlm_users.find_one({"id": user_id})
         if user is None:
             raise HTTPException(status_code=401, detail="User not found")
         
-        return User(**parse_from_mongo(user))
+        return MLMUser(**parse_from_mongo(user))
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-async def check_portal_status():
-    """Check if portal is enabled for employee access"""
-    settings = await db.system_settings.find_one({})
+async def calculate_and_distribute_commissions(user_id: str, earning_amount: float):
+    """Calculate and distribute commissions up the referral chain"""
+    settings = await get_mlm_settings()
+    commission_rates = {
+        1: settings.commission_l1 / 100,
+        2: settings.commission_l2 / 100, 
+        3: settings.commission_l3 / 100,
+        4: settings.commission_l4 / 100,
+        5: settings.commission_l5 / 100
+    }
+    
+    current_user = await db.mlm_users.find_one({"id": user_id})
+    if not current_user:
+        return
+    
+    referrer_code = current_user.get("referred_by")
+    level = 1
+    
+    while referrer_code and level <= 5:
+        referrer = await db.mlm_users.find_one({"referral_code": referrer_code})
+        if not referrer:
+            break
+            
+        commission_rate = commission_rates.get(level, 0)
+        if commission_rate > 0:
+            commission_amount = earning_amount * commission_rate
+            
+            # Update referrer's earnings
+            await db.mlm_users.update_one(
+                {"id": referrer["id"]},
+                {"$inc": {
+                    "current_balance": commission_amount,
+                    "total_earnings": commission_amount
+                }}
+            )
+            
+            # Record transaction
+            transaction = Transaction(
+                user_id=referrer["id"],
+                type="commission",
+                amount=commission_amount,
+                description=f"Level {level} commission from {current_user['full_name']}",
+                reference_id=user_id
+            )
+            await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
+        
+        referrer_code = referrer.get("referred_by")
+        level += 1
+
+async def update_referral_eligibility(user_id: str):
+    """Check and update withdrawal eligibility based on direct referrals"""
+    user = await db.mlm_users.find_one({"id": user_id})
+    if not user:
+        return
+    
+    direct_referrals_count = len(user.get("direct_referrals", []))
+    can_withdraw = direct_referrals_count >= 5
+    
+    await db.mlm_users.update_one(
+        {"id": user_id},
+        {"$set": {"can_withdraw": can_withdraw}}
+    )
+
+async def get_mlm_settings():
+    """Get MLM settings or create default"""
+    settings = await db.mlm_settings.find_one({})
     if not settings:
-        # Create default settings
-        default_settings = SystemSettings(updated_by="system")
-        await db.system_settings.insert_one(prepare_for_mongo(default_settings.dict()))
-        return True
-    return settings.get("portal_enabled", True)
+        default_settings = MLMSettings(updated_by="system")
+        await db.mlm_settings.insert_one(prepare_for_mongo(default_settings.dict()))
+        return default_settings
+    return MLMSettings(**parse_from_mongo(settings))
 
 # Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Life Line's Work Portal API"}
+    return {"message": "Life Line's MLM Work Portal API"}
 
-@api_router.get("/portal-status")
-async def get_portal_status():
-    enabled = await check_portal_status()
-    return {"enabled": enabled}
+@api_router.post("/auth/register")
+async def register_user(user_data: MLMUserCreate):
+    # Check if mobile number already exists
+    existing = await db.mlm_users.find_one({"mobile_number": user_data.mobile_number})
+    if existing:
+        raise HTTPException(status_code=400, detail="Mobile number already registered")
+    
+    # Validate referral code if provided
+    referrer = None
+    if user_data.referred_by_code:
+        referrer = await db.mlm_users.find_one({"referral_code": user_data.referred_by_code})
+        if not referrer:
+            raise HTTPException(status_code=400, detail="Invalid referral code")
+    
+    # Create user
+    hashed_password = get_password_hash(user_data.password)
+    referral_code = generate_referral_code()
+    
+    # Ensure unique referral code
+    while await db.mlm_users.find_one({"referral_code": referral_code}):
+        referral_code = generate_referral_code()
+    
+    user = MLMUser(
+        mobile_number=user_data.mobile_number,
+        full_name=user_data.full_name,
+        upi_address=user_data.upi_address,
+        referral_code=referral_code,
+        referred_by=user_data.referred_by_code
+    )
+    
+    user_dict = prepare_for_mongo(user.dict())
+    user_dict["password"] = hashed_password
+    
+    await db.mlm_users.insert_one(user_dict)
+    
+    # Update referrer's direct referrals if exists
+    if referrer:
+        await db.mlm_users.update_one(
+            {"id": referrer["id"]},
+            {
+                "$push": {"direct_referrals": user.id},
+                "$inc": {"total_referrals": 1}
+            }
+        )
+        await update_referral_eligibility(referrer["id"])
+    
+    return {
+        "message": "Registration successful",
+        "user_id": user.id,
+        "referral_code": referral_code,
+        "mobile_number": user.mobile_number
+    }
 
 @api_router.post("/auth/login")
-async def login(user_login: UserLogin):
-    # Check portal status for employees
-    if user_login.username != "admin":
-        portal_enabled = await check_portal_status()
-        if not portal_enabled:
-            raise HTTPException(status_code=403, detail="Portal is currently disabled. Please contact administrator.")
-    
-    user = await db.users.find_one({"username": user_login.username})
+async def login(user_login: MLMLogin):
+    user = await db.mlm_users.find_one({"mobile_number": user_login.mobile_number})
     if not user or not verify_password(user_login.password, user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-    
-    # Create time tracking session for employee
-    if user["role"] == "employee":
-        session = TimeTrackingSession(user_id=user["id"])
-        await db.time_sessions.insert_one(prepare_for_mongo(session.dict()))
+        raise HTTPException(status_code=401, detail="Invalid mobile number or password")
     
     access_token = create_access_token({"user_id": user["id"], "role": user["role"]})
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": User(**parse_from_mongo(user)).dict()
+        "user": MLMUser(**parse_from_mongo(user)).dict()
     }
 
-@api_router.post("/auth/logout")
-async def logout(current_user: User = Depends(get_current_user)):
-    if current_user.role == "employee":
-        # End the current session
-        session = await db.time_sessions.find_one({
-            "user_id": current_user.id,
-            "end_time": None
+@api_router.post("/admin/mark-registration-paid/{user_id}")
+async def mark_registration_paid(user_id: str, current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can mark registration as paid")
+    
+    settings = await get_mlm_settings()
+    
+    # Update user registration status
+    result = await db.mlm_users.update_one(
+        {"id": user_id},
+        {"$set": {"registration_fee_paid": True}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Record transaction
+    transaction = Transaction(
+        user_id=user_id,
+        type="registration_fee",
+        amount=settings.registration_fee,
+        description="Registration fee payment"
+    )
+    await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
+    
+    return {"message": "Registration fee marked as paid"}
+
+@api_router.get("/assignments")
+async def get_assignments(current_user: MLMUser = Depends(get_current_user)):
+    # Get all active assignments
+    assignments = await db.mlm_assignments.find({"is_active": True}).to_list(None)
+    
+    result = []
+    for assignment in assignments:
+        parsed = parse_from_mongo(assignment)
+        
+        # Check if user has submitted this assignment
+        submission = await db.mlm_submissions.find_one({
+            "assignment_id": parsed["id"],
+            "user_id": current_user.id
         })
         
-        if session:
-            end_time = datetime.now(timezone.utc)
-            start_time = datetime.fromisoformat(session["start_time"]) if isinstance(session["start_time"], str) else session["start_time"]
-            duration = int((end_time - start_time).total_seconds() / 60)
-            
-            await db.time_sessions.update_one(
-                {"id": session["id"]},
-                {"$set": {
-                    "end_time": end_time.isoformat(),
-                    "duration_minutes": duration
-                }}
-            )
+        parsed["user_submission"] = parse_from_mongo(submission) if submission else None
+        parsed["has_submitted"] = submission is not None
+        
+        result.append(parsed)
     
-    return {"message": "Logged out successfully"}
-
-@api_router.post("/users", response_model=User)
-async def create_user(user_create: UserCreate, current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can create users")
-    
-    # Check if username exists
-    existing = await db.users.find_one({"username": user_create.username})
-    if existing:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    # Create user
-    hashed_password = get_password_hash(user_create.password)
-    user_dict = user_create.dict()
-    user_dict["password"] = hashed_password
-    
-    user = User(**{k: v for k, v in user_dict.items() if k != "password"})
-    user_data = prepare_for_mongo(user.dict())
-    user_data["password"] = hashed_password
-    
-    await db.users.insert_one(user_data)
-    return user
-
-@api_router.get("/users", response_model=List[User])
-async def get_users(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can view users")
-    
-    users = await db.users.find({"role": "employee"}).to_list(None)
-    return [User(**parse_from_mongo(user)) for user in users]
+    return result
 
 @api_router.post("/assignments")
 async def create_assignment(
     title: str = Form(...),
     description: str = Form(...),
-    assigned_to: str = Form(...),
-    deadline: str = Form(...),
     amount: float = Form(...),
-    review_deadline_hours: int = Form(24),
+    deadline: str = Form(...),
     file: Optional[UploadFile] = File(None),
-    current_user: User = Depends(get_current_user)
+    current_user: MLMUser = Depends(get_current_user)
 ):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admin can create assignments")
     
-    # Handle "assign to all employees" functionality
-    if assigned_to == "all_employees":
-        # Get all active employees
-        employees = await db.users.find({"role": "employee", "is_active": True}).to_list(None)
-        
-        assignment_ids = []
-        for employee in employees:
-            assignment_data = {
-                "title": title,
-                "description": description,
-                "assigned_to": employee["id"],
-                "assigned_by": current_user.id,
-                "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00')),
-                "amount": amount,
-                "review_deadline_hours": review_deadline_hours
-            }
-            
-            if file:
-                file_content = await file.read()
-                assignment_data["attachment_name"] = file.filename
-                assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
-                # Reset file pointer for next iteration
-                await file.seek(0)
-            
-            assignment = WorkAssignment(**assignment_data)
-            await db.assignments.insert_one(prepare_for_mongo(assignment.dict()))
-            assignment_ids.append(assignment.id)
-        
-        return {
-            "message": f"Assignment created successfully for {len(employees)} employees", 
-            "assignment_ids": assignment_ids,
-            "employees_count": len(employees)
-        }
-    else:
-        # Single employee assignment (existing functionality)
-        assignment_data = {
-            "title": title,
-            "description": description,
-            "assigned_to": assigned_to,
-            "assigned_by": current_user.id,
-            "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00')),
-            "amount": amount,
-            "review_deadline_hours": review_deadline_hours
-        }
-        
-        if file:
-            file_content = await file.read()
-            assignment_data["attachment_name"] = file.filename
-            assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
-        
-        assignment = WorkAssignment(**assignment_data)
-        await db.assignments.insert_one(prepare_for_mongo(assignment.dict()))
-        return {"message": "Assignment created successfully", "id": assignment.id}
-
-@api_router.get("/assignments")
-async def get_assignments(current_user: User = Depends(get_current_user)):
-    if current_user.role == "admin":
-        assignments = await db.assignments.find().to_list(None)
-    else:
-        assignments = await db.assignments.find({"assigned_to": current_user.id}).to_list(None)
+    assignment_data = {
+        "title": title,
+        "description": description,
+        "amount": amount,
+        "created_by": current_user.id,
+        "deadline": datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+    }
     
-    result = []
-    for assignment in assignments:
-        parsed = parse_from_mongo(assignment)
-        # Get employee info for admin view
-        if current_user.role == "admin" and "assigned_to" in parsed:
-            employee = await db.users.find_one({"id": parsed["assigned_to"]})
-            if employee:
-                parsed["employee_name"] = employee["full_name"]
-        
-        # Check for submission
-        submission = await db.submissions.find_one({"assignment_id": parsed["id"]})
-        parsed["has_submission"] = submission is not None
-        if submission:
-            parsed["submission"] = parse_from_mongo(submission)
-        
-        # Calculate review deadline
-        if parsed["status"] == "submitted" and "submitted_at" in (parsed.get("submission") or {}):
-            submitted_time = parsed["submission"]["submitted_at"]
-            if isinstance(submitted_time, str):
-                submitted_time = datetime.fromisoformat(submitted_time)
-            review_deadline = submitted_time + timedelta(hours=parsed.get("review_deadline_hours", 24))
-            parsed["review_deadline"] = review_deadline.isoformat()
-        
-        result.append(parsed)
+    if file:
+        file_content = await file.read()
+        assignment_data["attachment_name"] = file.filename
+        assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
     
-    return result
+    assignment = MLMWorkAssignment(**assignment_data)
+    await db.mlm_assignments.insert_one(prepare_for_mongo(assignment.dict()))
+    
+    return {"message": "Assignment created successfully", "id": assignment.id}
 
 @api_router.post("/assignments/{assignment_id}/submit")
 async def submit_assignment(
     assignment_id: str,
     notes: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
-    current_user: User = Depends(get_current_user)
+    current_user: MLMUser = Depends(get_current_user)
 ):
-    if current_user.role != "employee":
-        raise HTTPException(status_code=403, detail="Only employees can submit assignments")
-    
-    # Check if assignment exists and belongs to user
-    assignment = await db.assignments.find_one({"id": assignment_id, "assigned_to": current_user.id})
+    # Check if assignment exists
+    assignment = await db.mlm_assignments.find_one({"id": assignment_id, "is_active": True})
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
     
-    # Check if assignment allows submissions (not rejected with passed resubmission deadline)
-    if assignment["status"] == "rejected" and assignment.get("resubmission_deadline"):
-        resubmission_deadline = datetime.fromisoformat(assignment["resubmission_deadline"])
-        if datetime.now(timezone.utc) > resubmission_deadline:
-            raise HTTPException(status_code=400, detail="Resubmission deadline has passed")
+    # Check if user already submitted
+    existing_submission = await db.mlm_submissions.find_one({
+        "assignment_id": assignment_id,
+        "user_id": current_user.id
+    })
+    if existing_submission:
+        raise HTTPException(status_code=400, detail="Assignment already submitted")
+    
+    # Check registration fee
+    if not current_user.registration_fee_paid:
+        raise HTTPException(status_code=400, detail="Registration fee must be paid before submitting work")
     
     submission_data = {
         "assignment_id": assignment_id,
-        "submitted_by": current_user.id,
-        "notes": notes,
-        "is_resubmission": assignment["status"] == "rejected"
+        "user_id": current_user.id,
+        "notes": notes
     }
     
     if file:
@@ -412,147 +441,346 @@ async def submit_assignment(
         submission_data["submission_file_name"] = file.filename
         submission_data["submission_file_data"] = base64.b64encode(file_content).decode('utf-8')
     
-    submission = WorkSubmission(**submission_data)
+    submission = MLMWorkSubmission(**submission_data)
+    await db.mlm_submissions.insert_one(prepare_for_mongo(submission.dict()))
     
-    # Remove old submission if exists
-    await db.submissions.delete_many({"assignment_id": assignment_id})
-    
-    # Insert new submission
-    await db.submissions.insert_one(prepare_for_mongo(submission.dict()))
-    
-    # Update assignment status
-    new_status = "resubmitted" if submission.is_resubmission else "submitted"
-    await db.assignments.update_one(
-        {"id": assignment_id},
-        {"$set": {
-            "status": new_status,
-            "resubmission_deadline": None,
-            "review_comments": None
-        }}
-    )
-    
-    return {"message": "Assignment submitted successfully. It will be reviewed and you will be informed within 24 hours."}
+    return {"message": "Work submitted successfully. It will be reviewed by admin."}
 
-@api_router.post("/assignments/{assignment_id}/review")
+@api_router.post("/submissions/{submission_id}/review")
 async def review_submission(
-    assignment_id: str,
-    review: ReviewSubmission,
-    current_user: User = Depends(get_current_user)
+    submission_id: str,
+    action: str = Form(...),  # "approve" or "reject"
+    comments: Optional[str] = Form(None),
+    current_user: MLMUser = Depends(get_current_user)
 ):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admin can review submissions")
     
-    assignment = await db.assignments.find_one({"id": assignment_id})
+    submission = await db.mlm_submissions.find_one({"id": submission_id})
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    assignment = await db.mlm_assignments.find_one({"id": submission["assignment_id"]})
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
     
-    submission = await db.submissions.find_one({"assignment_id": assignment_id})
-    if not submission:
-        raise HTTPException(status_code=404, detail="No submission found for this assignment")
+    # Update submission
+    await db.mlm_submissions.update_one(
+        {"id": submission_id},
+        {"$set": {
+            "status": "approved" if action == "approve" else "rejected",
+            "admin_comments": comments,
+            "reviewed_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
     
-    employee = await db.users.find_one({"id": assignment["assigned_to"]})
-    
-    if review.action == "accept":
-        # Update assignment status
-        await db.assignments.update_one(
-            {"id": assignment_id},
-            {"$set": {
-                "status": "accepted",
-                "review_comments": review.comments,
-                "reviewed_at": datetime.now(timezone.utc).isoformat()
+    if action == "approve":
+        # Add earnings to user
+        earning_amount = assignment["amount"]
+        
+        await db.mlm_users.update_one(
+            {"id": submission["user_id"]},
+            {"$inc": {
+                "current_balance": earning_amount,
+                "total_earnings": earning_amount
             }}
         )
         
-        # Update employee earnings
-        if employee:
-            assignment_amount = assignment.get("amount", 0.0)
-            new_pending = employee.get("pending_earnings", 0) + assignment_amount
-            new_total = employee.get("total_earnings", 0) + assignment_amount
-            await db.users.update_one(
-                {"id": assignment["assigned_to"]},
-                {"$set": {
-                    "pending_earnings": new_pending,
-                    "total_earnings": new_total
-                }}
-            )
+        # Record transaction
+        transaction = Transaction(
+            user_id=submission["user_id"],
+            type="earning",
+            amount=earning_amount,
+            description=f"Work approved: {assignment['title']}",
+            reference_id=assignment["id"]
+        )
+        await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
         
-        return {"message": f"Work accepted! Amount ₹{assignment.get('amount', 0)} has been credited to employee's pending earnings."}
+        # Distribute commissions
+        await calculate_and_distribute_commissions(submission["user_id"], earning_amount)
     
-    elif review.action == "reject":
-        # Set resubmission deadline
-        resubmission_deadline = datetime.now(timezone.utc) + timedelta(hours=review.resubmission_hours or 48)
+    return {
+        "message": f"Submission {action}d successfully",
+        "amount_credited": assignment["amount"] if action == "approve" else 0
+    }
+
+@api_router.post("/withdrawal/request")
+async def request_withdrawal(
+    amount: float = Form(...),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    settings = await get_mlm_settings()
+    
+    # Check eligibility
+    if not current_user.can_withdraw:
+        raise HTTPException(status_code=400, detail="You need 5 direct referrals to withdraw")
+    
+    if amount < settings.minimum_withdrawal:
+        raise HTTPException(status_code=400, detail=f"Minimum withdrawal amount is ₹{settings.minimum_withdrawal}")
+    
+    if amount > current_user.current_balance:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+    
+    # Create withdrawal request
+    withdrawal = WithdrawalRequest(
+        user_id=current_user.id,
+        amount=amount,
+        upi_address=current_user.upi_address
+    )
+    
+    await db.withdrawal_requests.insert_one(prepare_for_mongo(withdrawal.dict()))
+    
+    # Deduct from balance temporarily
+    await db.mlm_users.update_one(
+        {"id": current_user.id},
+        {"$inc": {"current_balance": -amount}}
+    )
+    
+    return {"message": "Withdrawal request submitted successfully"}
+
+@api_router.get("/withdrawal/requests")
+async def get_withdrawal_requests(current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view withdrawal requests")
+    
+    requests = await db.withdrawal_requests.find({}).to_list(None)
+    
+    result = []
+    for req in requests:
+        parsed = parse_from_mongo(req)
+        user = await db.mlm_users.find_one({"id": parsed["user_id"]})
+        if user:
+            parsed["user_name"] = user["full_name"]
+            parsed["user_mobile"] = user["mobile_number"]
+        result.append(parsed)
+    
+    return result
+
+@api_router.post("/withdrawal/{withdrawal_id}/process")
+async def process_withdrawal(
+    withdrawal_id: str,
+    action: str = Form(...),  # "approve", "reject", "mark_paid"
+    comments: Optional[str] = Form(None),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can process withdrawals")
+    
+    withdrawal = await db.withdrawal_requests.find_one({"id": withdrawal_id})
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Withdrawal request not found")
+    
+    if action == "approve":
+        await db.withdrawal_requests.update_one(
+            {"id": withdrawal_id},
+            {"$set": {
+                "status": "approved",
+                "processed_at": datetime.now(timezone.utc).isoformat(),
+                "processed_by": current_user.id,
+                "admin_comments": comments
+            }}
+        )
+    
+    elif action == "reject":
+        # Return money to user balance
+        await db.mlm_users.update_one(
+            {"id": withdrawal["user_id"]},
+            {"$inc": {"current_balance": withdrawal["amount"]}}
+        )
         
-        await db.assignments.update_one(
-            {"id": assignment_id},
+        await db.withdrawal_requests.update_one(
+            {"id": withdrawal_id},
             {"$set": {
                 "status": "rejected",
-                "review_comments": review.comments,
-                "reviewed_at": datetime.now(timezone.utc).isoformat(),
-                "resubmission_deadline": resubmission_deadline.isoformat()
+                "processed_at": datetime.now(timezone.utc).isoformat(),
+                "processed_by": current_user.id,
+                "admin_comments": comments
             }}
         )
-        
-        return {"message": f"Work rejected. Employee has {review.resubmission_hours or 48} hours to resubmit with improvements."}
-
-@api_router.post("/assignments/{assignment_id}/payment")
-async def manage_payment(
-    assignment_id: str,
-    payment_action: PaymentAction,
-    current_user: User = Depends(get_current_user)
-):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can manage payments")
     
-    assignment = await db.assignments.find_one({"id": assignment_id})
-    if not assignment or assignment["status"] != "accepted":
-        raise HTTPException(status_code=400, detail="Assignment must be accepted before payment management")
-    
-    employee = await db.users.find_one({"id": assignment["assigned_to"]})
-    if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    
-    if payment_action.action == "mark_paid":
-        # Move from pending to credited
-        assignment_amount = assignment.get("amount", 0.0)
-        new_pending = employee.get("pending_earnings", 0) - assignment_amount
-        new_credited = employee.get("credited_earnings", 0) + assignment_amount
-        
-        await db.users.update_one(
-            {"id": assignment["assigned_to"]},
+    elif action == "mark_paid":
+        await db.withdrawal_requests.update_one(
+            {"id": withdrawal_id},
             {"$set": {
-                "pending_earnings": max(0, new_pending),
-                "credited_earnings": new_credited
+                "status": "paid",
+                "processed_at": datetime.now(timezone.utc).isoformat(),
+                "processed_by": current_user.id
             }}
         )
         
-        # Mark assignment as paid
-        await db.assignments.update_one(
-            {"id": assignment_id},
-            {"$set": {"payment_status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}}
+        # Record transaction
+        transaction = Transaction(
+            user_id=withdrawal["user_id"],
+            type="withdrawal",
+            amount=-withdrawal["amount"],
+            description=f"Withdrawal to UPI: {withdrawal['upi_address']}",
+            reference_id=withdrawal_id
         )
+        await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
         
-        return {"message": f"Payment of ₹{assignment.get('amount', 0)} marked as completed and credited to employee."}
+        # Update user's total withdrawn
+        await db.mlm_users.update_one(
+            {"id": withdrawal["user_id"]},
+            {"$inc": {"total_withdrawn": withdrawal["amount"]}}
+        )
     
-    elif payment_action.action == "mark_unpaid":
-        # Move from credited back to pending (if needed)
-        await db.assignments.update_one(
-            {"id": assignment_id},
-            {"$unset": {"payment_status": "", "paid_at": ""}}
-        )
+    return {"message": f"Withdrawal {action}d successfully"}
+
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats(current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role == "admin":
+        total_users = await db.mlm_users.count_documents({"role": "member"})
+        active_assignments = await db.mlm_assignments.count_documents({"is_active": True})
+        pending_submissions = await db.mlm_submissions.count_documents({"status": "pending"})
+        pending_withdrawals = await db.withdrawal_requests.count_documents({"status": "pending"})
         
-        return {"message": "Payment status reverted to unpaid."}
+        # Calculate total earnings in system
+        pipeline = [
+            {"$match": {"role": "member"}},
+            {"$group": {
+                "_id": None,
+                "total_earnings": {"$sum": "$total_earnings"},
+                "total_balance": {"$sum": "$current_balance"},
+                "total_withdrawn": {"$sum": "$total_withdrawn"}
+            }}
+        ]
+        
+        result = await db.mlm_users.aggregate(pipeline).to_list(1)
+        earnings = result[0] if result else {"total_earnings": 0, "total_balance": 0, "total_withdrawn": 0}
+        
+        return {
+            "total_users": total_users,
+            "active_assignments": active_assignments,
+            "pending_submissions": pending_submissions,
+            "pending_withdrawals": pending_withdrawals,
+            "total_system_earnings": earnings["total_earnings"],
+            "total_system_balance": earnings["total_balance"],
+            "total_system_withdrawn": earnings["total_withdrawn"]
+        }
+    else:
+        # Get user's transactions
+        transactions = await db.transactions.find({"user_id": current_user.id}).to_list(None)
+        daily_earnings = {}
+        
+        for txn in transactions:
+            if txn["type"] in ["earning", "commission"]:
+                date_str = txn["date"][:10] if isinstance(txn["date"], str) else txn["date"].strftime("%Y-%m-%d")
+                daily_earnings[date_str] = daily_earnings.get(date_str, 0) + txn["amount"]
+        
+        # Get pending submissions
+        pending_count = await db.mlm_submissions.count_documents({
+            "user_id": current_user.id,
+            "status": "pending"
+        })
+        
+        return {
+            "current_balance": current_user.current_balance,
+            "total_earnings": current_user.total_earnings,
+            "total_withdrawn": current_user.total_withdrawn,
+            "direct_referrals": len(current_user.direct_referrals),
+            "can_withdraw": current_user.can_withdraw,
+            "registration_fee_paid": current_user.registration_fee_paid,
+            "pending_submissions": pending_count,
+            "daily_earnings": daily_earnings,
+            "referral_code": current_user.referral_code
+        }
+
+@api_router.get("/transactions")
+async def get_transactions(current_user: MLMUser = Depends(get_current_user)):
+    transactions = await db.transactions.find({"user_id": current_user.id}).sort("date", -1).to_list(None)
+    return [parse_from_mongo(txn) for txn in transactions]
+
+@api_router.get("/referral/tree")
+async def get_referral_tree(current_user: MLMUser = Depends(get_current_user)):
+    """Get referral network tree data"""
+    
+    async def build_tree_node(user_data, level=1, max_level=5):
+        node = {
+            "id": user_data["id"],
+            "name": user_data["full_name"],
+            "mobile": user_data["mobile_number"],
+            "earnings": user_data.get("total_earnings", 0),
+            "level": level,
+            "children": []
+        }
+        
+        if level < max_level:
+            # Get direct referrals
+            referrals = await db.mlm_users.find({
+                "referred_by": user_data["referral_code"]
+            }).to_list(None)
+            
+            for referral in referrals:
+                child_node = await build_tree_node(referral, level + 1, max_level)
+                node["children"].append(child_node)
+        
+        return node
+    
+    # Start from current user or admin can view any user's tree
+    if current_user.role == "admin":
+        # Admin can see full network - start from root users (no referrer)
+        root_users = await db.mlm_users.find({"referred_by": None}).to_list(None)
+        trees = []
+        for root_user in root_users:
+            tree = await build_tree_node(root_user)
+            trees.append(tree)
+        return trees
+    else:
+        # Member sees their own tree
+        user_data = await db.mlm_users.find_one({"id": current_user.id})
+        tree = await build_tree_node(user_data)
+        return [tree]
+
+@api_router.get("/admin/users")
+async def get_all_users(current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view all users")
+    
+    users = await db.mlm_users.find({"role": "member"}).to_list(None)
+    return [parse_from_mongo(user) for user in users]
+
+@api_router.get("/admin/submissions")
+async def get_all_submissions(current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view all submissions")
+    
+    submissions = await db.mlm_submissions.find({}).to_list(None)
+    
+    result = []
+    for submission in submissions:
+        parsed = parse_from_mongo(submission)
+        
+        # Get user and assignment details
+        user = await db.mlm_users.find_one({"id": parsed["user_id"]})
+        assignment = await db.mlm_assignments.find_one({"id": parsed["assignment_id"]})
+        
+        if user and assignment:
+            parsed["user_name"] = user["full_name"]
+            parsed["user_mobile"] = user["mobile_number"]
+            parsed["assignment_title"] = assignment["title"]
+            parsed["assignment_amount"] = assignment["amount"]
+        
+        result.append(parsed)
+    
+    return result
 
 @api_router.get("/assignments/{assignment_id}/download")
-async def download_submission_file(
+async def download_submission(
     assignment_id: str,
-    current_user: User = Depends(get_current_user)
+    user_id: Optional[str] = None,
+    current_user: MLMUser = Depends(get_current_user)
 ):
     if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can download submission files")
+        raise HTTPException(status_code=403, detail="Only admin can download submissions")
     
-    submission = await db.submissions.find_one({"assignment_id": assignment_id})
+    # Find submission
+    query = {"assignment_id": assignment_id}
+    if user_id:
+        query["user_id"] = user_id
+    
+    submission = await db.mlm_submissions.find_one(query)
     if not submission or not submission.get("submission_file_data"):
-        raise HTTPException(status_code=404, detail="No file found for this submission")
+        raise HTTPException(status_code=404, detail="No submission file found")
     
     try:
         file_data = base64.b64decode(submission["submission_file_data"])
@@ -569,22 +797,18 @@ async def download_submission_file(
 @api_router.get("/assignments/{assignment_id}/attachment")
 async def download_assignment_attachment(
     assignment_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: MLMUser = Depends(get_current_user)
 ):
-    assignment = await db.assignments.find_one({"id": assignment_id})
+    assignment = await db.mlm_assignments.find_one({"id": assignment_id})
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
     
-    # Check permissions
-    if current_user.role != "admin" and assignment["assigned_to"] != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
     if not assignment.get("attachment_data"):
-        raise HTTPException(status_code=404, detail="No attachment found for this assignment")
+        raise HTTPException(status_code=404, detail="No attachment found")
     
     try:
         file_data = base64.b64decode(assignment["attachment_data"])
-        filename = assignment.get("attachment_name", "assignment_attachment")
+        filename = assignment.get("attachment_name", "assignment_file")
         
         return Response(
             content=file_data,
@@ -594,230 +818,97 @@ async def download_assignment_attachment(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error processing file download")
 
-@api_router.get("/time-tracking")
-async def get_time_tracking(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can view time tracking")
-    
-    # Get all completed sessions
-    sessions = await db.time_sessions.find({"end_time": {"$ne": None}}).to_list(None)
-    
-    # Group by user and date
-    result = {}
-    for session in sessions:
-        parsed = parse_from_mongo(session)
-        user_id = parsed["user_id"]
-        date = parsed["date"]
-        
-        if user_id not in result:
-            user = await db.users.find_one({"id": user_id})
-            result[user_id] = {
-                "user_name": user["full_name"] if user else "Unknown",
-                "daily_hours": {}
-            }
-        
-        if date not in result[user_id]["daily_hours"]:
-            result[user_id]["daily_hours"][date] = 0
-        
-        result[user_id]["daily_hours"][date] += parsed.get("duration_minutes", 0)
-    
-    return result
-
-@api_router.get("/dashboard/stats")
-async def get_dashboard_stats(current_user: User = Depends(get_current_user)):
-    if current_user.role == "admin":
-        total_employees = await db.users.count_documents({"role": "employee"})
-        total_assignments = await db.assignments.count_documents({})
-        pending_assignments = await db.assignments.count_documents({"status": {"$in": ["pending", "submitted", "resubmitted"]}})
-        accepted_assignments = await db.assignments.count_documents({"status": "accepted"})
-        
-        # Calculate total pending and credited earnings
-        pipeline = [
-            {"$match": {"role": "employee"}},
-            {"$group": {
-                "_id": None,
-                "total_pending": {"$sum": "$pending_earnings"},
-                "total_credited": {"$sum": "$credited_earnings"},
-                "total_earnings": {"$sum": "$total_earnings"}
-            }}
-        ]
-        
-        earnings_result = await db.users.aggregate(pipeline).to_list(1)
-        earnings = earnings_result[0] if earnings_result else {"total_pending": 0, "total_credited": 0, "total_earnings": 0}
-        
-        return {
-            "total_employees": total_employees,
-            "total_assignments": total_assignments,
-            "pending_assignments": pending_assignments,
-            "accepted_assignments": accepted_assignments,
-            "total_pending_earnings": earnings["total_pending"],
-            "total_credited_earnings": earnings["total_credited"],
-            "total_earnings": earnings["total_earnings"]
-        }
-    else:
-        my_assignments = await db.assignments.count_documents({"assigned_to": current_user.id})
-        pending_assignments = await db.assignments.count_documents({
-            "assigned_to": current_user.id,
-            "status": {"$in": ["pending", "submitted", "resubmitted"]}
-        })
-        accepted_assignments = await db.assignments.count_documents({
-            "assigned_to": current_user.id,
-            "status": "accepted"
-        })
-        
-        # Get user earnings
-        user = await db.users.find_one({"id": current_user.id})
-        
-        return {
-            "total_assignments": my_assignments,
-            "pending_assignments": pending_assignments,
-            "accepted_assignments": accepted_assignments,
-            "pending_earnings": user.get("pending_earnings", 0),
-            "credited_earnings": user.get("credited_earnings", 0),
-            "total_earnings": user.get("total_earnings", 0),
-            "account_balance": user.get("account_balance", 0)
-        }
-
-@api_router.post("/system/portal-toggle")
-async def toggle_portal_status(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can control portal status")
-    
-    # Get current settings
-    settings = await db.system_settings.find_one({})
-    current_status = settings.get("portal_enabled", True) if settings else True
-    
-    # Toggle status
-    new_status = not current_status
-    
-    if settings:
-        await db.system_settings.update_one(
-            {"id": settings["id"]},
-            {"$set": {
-                "portal_enabled": new_status,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-                "updated_by": current_user.id
-            }}
-        )
-    else:
-        new_settings = SystemSettings(portal_enabled=new_status, updated_by=current_user.id)
-        await db.system_settings.insert_one(prepare_for_mongo(new_settings.dict()))
-    
-    status_text = "enabled" if new_status else "disabled"
-    return {"message": f"Portal has been {status_text}", "portal_enabled": new_status}
-
-@api_router.get("/employees/earnings")
-async def get_employees_earnings(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can view employee earnings")
-    
-    employees = await db.users.find({"role": "employee"}).to_list(None)
-    
-    result = []
-    for emp in employees:
-        parsed_emp = parse_from_mongo(emp)
-        
-        # Get accepted assignments for payment tracking
-        accepted_assignments = await db.assignments.find({
-            "assigned_to": emp["id"],
-            "status": "accepted"
-        }).to_list(None)
-        
-        payment_details = []
-        for assignment in accepted_assignments:
-            parsed_assignment = parse_from_mongo(assignment)
-            payment_details.append({
-                "assignment_title": parsed_assignment["title"],
-                "amount": parsed_assignment.get("amount", 0.0),
-                "accepted_at": parsed_assignment.get("reviewed_at"),
-                "payment_status": parsed_assignment.get("payment_status", "unpaid"),
-                "paid_at": parsed_assignment.get("paid_at"),
-                "assignment_id": parsed_assignment["id"]
-            })
-        
-        result.append({
-            "employee_id": emp["id"],
-            "employee_name": emp["full_name"],
-            "total_earnings": emp.get("total_earnings", 0),
-            "pending_earnings": emp.get("pending_earnings", 0),
-            "credited_earnings": emp.get("credited_earnings", 0),
-            "account_balance": emp.get("account_balance", 0),
-            "payment_details": payment_details
-        })
-    
-    return result
-
-@api_router.post("/employees/{employee_id}/balance")
-async def update_employee_balance(
-    employee_id: str,
-    balance_update: EmployeeBalanceUpdate,
-    current_user: User = Depends(get_current_user)
+@api_router.post("/admin/settings")
+async def update_settings(
+    registration_fee: Optional[float] = Form(None),
+    minimum_withdrawal: Optional[float] = Form(None),
+    commission_l1: Optional[float] = Form(None),
+    commission_l2: Optional[float] = Form(None),
+    commission_l3: Optional[float] = Form(None),
+    commission_l4: Optional[float] = Form(None),
+    commission_l5: Optional[float] = Form(None),
+    current_user: MLMUser = Depends(get_current_user)
 ):
     if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can update employee balances")
+        raise HTTPException(status_code=403, detail="Only admin can update settings")
     
-    # Verify employee exists
-    employee = await db.users.find_one({"id": employee_id, "role": "employee"})
-    if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": current_user.id}
     
-    # Update employee balance
-    await db.users.update_one(
-        {"id": employee_id},
-        {"$set": {"account_balance": balance_update.new_balance}}
+    if registration_fee is not None:
+        update_data["registration_fee"] = registration_fee
+    if minimum_withdrawal is not None:
+        update_data["minimum_withdrawal"] = minimum_withdrawal
+    if commission_l1 is not None:
+        update_data["commission_l1"] = commission_l1
+    if commission_l2 is not None:
+        update_data["commission_l2"] = commission_l2
+    if commission_l3 is not None:
+        update_data["commission_l3"] = commission_l3
+    if commission_l4 is not None:
+        update_data["commission_l4"] = commission_l4
+    if commission_l5 is not None:
+        update_data["commission_l5"] = commission_l5
+    
+    await db.mlm_settings.update_one({}, {"$set": update_data}, upsert=True)
+    
+    return {"message": "Settings updated successfully"}
+
+@api_router.get("/admin/settings")
+async def get_settings(current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view settings")
+    
+    settings = await get_mlm_settings()
+    return settings.dict()
+
+@api_router.post("/admin/change-password")
+async def admin_change_password(
+    new_password: str = Form(...),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can change password")
+    
+    hashed_password = get_password_hash(new_password)
+    
+    await db.mlm_users.update_one(
+        {"id": current_user.id},
+        {"$set": {"password": hashed_password}}
     )
     
-    return {
-        "message": f"Balance updated successfully for {employee['full_name']}",
-        "employee_name": employee["full_name"],
-        "new_balance": balance_update.new_balance
-    }
+    return {"message": "Password changed successfully"}
 
-@api_router.get("/employees/balances")
-async def get_employee_balances(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can view employee balances")
-    
-    employees = await db.users.find({"role": "employee"}).to_list(None)
-    
-    result = []
-    for emp in employees:
-        result.append({
-            "employee_id": emp["id"],
-            "employee_name": emp["full_name"],
-            "account_balance": emp.get("account_balance", 0),
-            "username": emp["username"],
-            "email": emp["email"]
-        })
-    
-    return result
-
-# Initialize admin user
+# Initialize admin user and settings
 @api_router.post("/init")
-async def initialize_admin():
+async def initialize_system():
     # Check if admin exists
-    admin = await db.users.find_one({"role": "admin"})
+    admin = await db.mlm_users.find_one({"role": "admin"})
     if admin:
-        return {"message": "Admin already exists"}
+        return {"message": "System already initialized"}
     
     # Create admin user
-    admin_user = User(
-        username="admin",
-        email="admin@lifeline.com",
-        role="admin",
-        full_name="Administrator"
+    admin_user = MLMUser(
+        mobile_number="9999999999",
+        full_name="System Administrator",
+        upi_address="admin@upi",
+        referral_code="ADMIN001",
+        role="admin"
     )
     
     admin_data = prepare_for_mongo(admin_user.dict())
-    admin_data["password"] = get_password_hash("admin")
+    admin_data["password"] = get_password_hash("admin123")
     
-    await db.users.insert_one(admin_data)
+    await db.mlm_users.insert_one(admin_data)
     
-    # Initialize system settings
-    settings = SystemSettings(updated_by=admin_user.id)
-    await db.system_settings.insert_one(prepare_for_mongo(settings.dict()))
+    # Initialize settings
+    settings = MLMSettings(updated_by=admin_user.id)
+    await db.mlm_settings.insert_one(prepare_for_mongo(settings.dict()))
     
-    return {"message": "Life Line's work portal initialized", "username": "admin", "password": "admin"}
+    return {
+        "message": "Life Line's MLM System initialized",
+        "admin_mobile": "9999999999",
+        "admin_password": "admin123"
+    }
 
 # Include the router in the main app
 app.include_router(api_router)

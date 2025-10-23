@@ -17,9 +17,8 @@ import { toast } from 'sonner';
 import { Toaster } from './components/ui/sonner';
 import { Calendar } from './components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
-import { Switch } from './components/ui/switch';
 import { format } from 'date-fns';
-import { Download, Eye, Clock, DollarSign, Users, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Download, Eye, Clock, DollarSign, Users, FileText, CheckCircle, XCircle, Network, TreePine, CreditCard } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -30,7 +29,6 @@ const AuthContext = React.createContext();
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [portalEnabled, setPortalEnabled] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -39,24 +37,15 @@ function AuthProvider({ children }) {
       setUser(JSON.parse(userData));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    
-    // Check portal status
-    checkPortalStatus();
     setLoading(false);
   }, []);
 
-  const checkPortalStatus = async () => {
+  const login = async (mobileNumber, password) => {
     try {
-      const response = await axios.get(`${API}/portal-status`);
-      setPortalEnabled(response.data.enabled);
-    } catch (error) {
-      console.error('Error checking portal status:', error);
-    }
-  };
-
-  const login = async (username, password) => {
-    try {
-      const response = await axios.post(`${API}/auth/login`, { username, password });
+      const response = await axios.post(`${API}/auth/login`, { 
+        mobile_number: mobileNumber, 
+        password: password 
+      });
       const { access_token, user: userData } = response.data;
       
       localStorage.setItem('token', access_token);
@@ -72,22 +61,31 @@ function AuthProvider({ children }) {
     }
   };
 
+  const register = async (formData) => {
+    try {
+      const response = await axios.post(`${API}/auth/register`, formData);
+      toast.success('Registration successful! Please wait for admin approval.');
+      return response.data;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Registration failed');
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
-      await axios.post(`${API}/auth/logout`);
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       delete axios.defaults.headers.common['Authorization'];
       setUser(null);
       toast.success('Logged out successfully');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, portalEnabled, checkPortalStatus }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
@@ -101,90 +99,191 @@ function useAuth() {
   return context;
 }
 
-// Login Component
-function Login() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+// Login/Register Component
+function LoginRegister() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [loginData, setLoginData] = useState({ mobile_number: '', password: '' });
+  const [registerData, setRegisterData] = useState({
+    mobile_number: '',
+    full_name: '',
+    upi_address: '',
+    password: '',
+    referred_by_code: ''
+  });
   const [loading, setLoading] = useState(false);
-  const { login, portalEnabled } = useAuth();
+  const { login, register } = useAuth();
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (!portalEnabled && username !== 'admin') {
-      toast.error('Portal is currently disabled. Please contact administrator.');
-      return;
-    }
     setLoading(true);
-    await login(username, password);
+    await login(loginData.mobile_number, loginData.password);
+    setLoading(false);
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await register(registerData);
+      setIsLogin(true);
+      setRegisterData({
+        mobile_number: '',
+        full_name: '',
+        upi_address: '',
+        password: '',
+        referred_by_code: ''
+      });
+    } catch (error) {
+      // Error already handled in register function
+    }
     setLoading(false);
   };
 
   const initializeSystem = async () => {
     try {
-      await axios.post(`${API}/init`);
-      toast.success('Life Line\'s work portal initialized! Admin credentials: admin/admin');
+      const response = await axios.post(`${API}/init`);
+      toast.success(response.data.message);
     } catch (error) {
       toast.error('Failed to initialize system');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-800 to-cyan-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md backdrop-blur-lg bg-white/10 border-white/20">
         <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mb-4">
-            <FileText className="w-8 h-8 text-white" />
+          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mb-4">
+            <Network className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl font-bold text-white">
-            Life Line's Work Portal
+            Life Line's MLM Portal
           </CardTitle>
           <p className="text-gray-200 text-sm">
-            Professional Work Management System
+            {isLogin ? 'Sign in to your account' : 'Create your MLM account'}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!portalEnabled && (
-            <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-center">
-              <p className="text-red-200 text-sm">Portal is currently disabled for employees</p>
-            </div>
-          )}
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-white">Username</Label>
-              <Input
-                id="username"
-                data-testid="login-username-input"
-                type="text"
-                placeholder="Enter username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
-              <Input
-                id="password"
-                data-testid="login-password-input"
-                type="password"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
-              />
-            </div>
-            <Button
-              type="submit"
-              data-testid="login-submit-button"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={loading}
+          <div className="flex space-x-2 mb-4">
+            <Button 
+              variant={isLogin ? "default" : "outline"}
+              onClick={() => setIsLogin(true)}
+              className="flex-1"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              Login
             </Button>
-          </form>
+            <Button 
+              variant={!isLogin ? "default" : "outline"}
+              onClick={() => setIsLogin(false)}
+              className="flex-1"
+            >
+              Register
+            </Button>
+          </div>
+
+          {isLogin ? (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="mobile" className="text-white">Mobile Number</Label>
+                <Input
+                  id="mobile"
+                  type="tel"
+                  placeholder="Enter mobile number"
+                  value={loginData.mobile_number}
+                  onChange={(e) => setLoginData({...loginData, mobile_number: e.target.value})}
+                  required
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-white">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={loginData.password}
+                  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                  required
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={loading}
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reg-name" className="text-white">Full Name</Label>
+                <Input
+                  id="reg-name"
+                  type="text"
+                  placeholder="Enter full name"
+                  value={registerData.full_name}
+                  onChange={(e) => setRegisterData({...registerData, full_name: e.target.value})}
+                  required
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reg-mobile" className="text-white">Mobile Number</Label>
+                <Input
+                  id="reg-mobile"
+                  type="tel"
+                  placeholder="Enter mobile number"
+                  value={registerData.mobile_number}
+                  onChange={(e) => setRegisterData({...registerData, mobile_number: e.target.value})}
+                  required
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="upi" className="text-white">UPI Address</Label>
+                <Input
+                  id="upi"
+                  type="text"
+                  placeholder="yourname@paytm"
+                  value={registerData.upi_address}
+                  onChange={(e) => setRegisterData({...registerData, upi_address: e.target.value})}
+                  required
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="referral" className="text-white">Referral Code (Optional)</Label>
+                <Input
+                  id="referral"
+                  type="text"
+                  placeholder="Enter referral code"
+                  value={registerData.referred_by_code}
+                  onChange={(e) => setRegisterData({...registerData, referred_by_code: e.target.value})}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reg-password" className="text-white">Password</Label>
+                <Input
+                  id="reg-password"
+                  type="password"
+                  placeholder="Create password"
+                  value={registerData.password}
+                  onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
+                  required
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-300"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={loading}
+              >
+                {loading ? 'Registering...' : 'Register'}
+              </Button>
+            </form>
+          )}
           
           <div className="text-center">
             <Button
@@ -201,353 +300,14 @@ function Login() {
   );
 }
 
-// Admin Dashboard
-function AdminDashboard() {
-  const [stats, setStats] = useState({});
-  const [employees, setEmployees] = useState([]);
-  const [assignments, setAssignments] = useState([]);
-  const [timeTracking, setTimeTracking] = useState({});
-  const [employeeEarnings, setEmployeeEarnings] = useState([]);
-  const [portalEnabled, setPortalEnabled] = useState(true);
-  const { user, logout, checkPortalStatus } = useAuth();
-
-  useEffect(() => {
-    fetchDashboardData();
-    fetchPortalStatus();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const [statsRes, employeesRes, assignmentsRes, timeRes, earningsRes] = await Promise.all([
-        axios.get(`${API}/dashboard/stats`),
-        axios.get(`${API}/users`),
-        axios.get(`${API}/assignments`),
-        axios.get(`${API}/time-tracking`),
-        axios.get(`${API}/employees/earnings`)
-      ]);
-      
-      setStats(statsRes.data);
-      setEmployees(employeesRes.data);
-      setAssignments(assignmentsRes.data);
-      setTimeTracking(timeRes.data);
-      setEmployeeEarnings(earningsRes.data);
-    } catch (error) {
-      toast.error('Failed to fetch dashboard data');
-    }
-  };
-
-  const fetchPortalStatus = async () => {
-    try {
-      const response = await axios.get(`${API}/portal-status`);
-      setPortalEnabled(response.data.enabled);
-    } catch (error) {
-      console.error('Error fetching portal status:', error);
-    }
-  };
-
-  const togglePortalStatus = async () => {
-    try {
-      const response = await axios.post(`${API}/system/portal-toggle`);
-      setPortalEnabled(response.data.portal_enabled);
-      toast.success(response.data.message);
-      checkPortalStatus();
-    } catch (error) {
-      toast.error('Failed to toggle portal status');
-    }
-  };
-
-  const downloadFile = async (assignmentId, type = 'submission') => {
-    try {
-      const endpoint = type === 'submission' 
-        ? `${API}/assignments/${assignmentId}/download`
-        : `${API}/assignments/${assignmentId}/attachment`;
-      
-      const response = await axios.get(endpoint, {
-        responseType: 'blob'
-      });
-      
-      const contentDisposition = response.headers['content-disposition'];
-      const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `${type}_file`;
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-      toast.success(`${type} file downloaded successfully`);
-    } catch (error) {
-      toast.error(`Failed to download ${type} file`);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Life Line's Work Portal</h1>
-              <p className="text-sm text-gray-600">Admin Dashboard</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="portal-toggle" className="text-sm font-medium">
-                Portal Status
-              </Label>
-              <Switch
-                id="portal-toggle"
-                checked={portalEnabled}
-                onCheckedChange={togglePortalStatus}
-                data-testid="portal-toggle-switch"
-              />
-              <span className={`text-sm ${portalEnabled ? 'text-green-600' : 'text-red-600'}`}>
-                {portalEnabled ? 'Online' : 'Offline'}
-              </span>
-            </div>
-            <span className="text-sm text-gray-600">Welcome, {user?.full_name}</span>
-            <Button onClick={logout} variant="outline" size="sm" data-testid="logout-button">
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="p-6 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                <div>
-                  <div className="text-xl font-bold text-blue-600">{stats.total_employees || 0}</div>
-                  <div className="text-xs text-gray-600">Employees</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-green-600" />
-                <div>
-                  <div className="text-xl font-bold text-green-600">{stats.total_assignments || 0}</div>
-                  <div className="text-xs text-gray-600">Assignments</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-yellow-600" />
-                <div>
-                  <div className="text-xl font-bold text-yellow-600">{stats.pending_assignments || 0}</div>
-                  <div className="text-xs text-gray-600">Pending</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-5 h-5 text-purple-600" />
-                <div>
-                  <div className="text-xl font-bold text-purple-600">{stats.accepted_assignments || 0}</div>
-                  <div className="text-xs text-gray-600">Accepted</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-indigo-600" />
-                <div>
-                  <div className="text-xl font-bold text-indigo-600">₹{stats.total_earnings || 0}</div>
-                  <div className="text-xs text-gray-600">Total Earnings</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-orange-600" />
-                <div>
-                  <div className="text-xl font-bold text-orange-600">₹{stats.total_pending_earnings || 0}</div>
-                  <div className="text-xs text-gray-600">Pending Pay</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <div className="text-xl font-bold text-emerald-600">₹{stats.total_credited_earnings || 0}</div>
-                  <div className="text-xs text-gray-600">Credited</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <Tabs defaultValue="assignments" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="balances">Balances</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
-            <TabsTrigger value="timetracking">Time Tracking</TabsTrigger>
-            <TabsTrigger value="submissions">Submissions</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="assignments" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Work Assignments</h2>
-              <CreateAssignmentDialog employees={employees} onAssignmentCreated={fetchDashboardData} />
-            </div>
-            <div className="grid gap-4">
-              {assignments.map((assignment) => (
-                <AdminAssignmentCard 
-                  key={assignment.id} 
-                  assignment={assignment} 
-                  onUpdate={fetchDashboardData}
-                  onDownload={downloadFile}
-                />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="employees" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Employees</h2>
-              <CreateUserDialog onUserCreated={fetchDashboardData} />
-            </div>
-            <div className="grid gap-4">
-              {employees.map((employee) => (
-                <Card key={employee.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{employee.full_name}</h3>
-                        <p className="text-sm text-gray-600">{employee.email}</p>
-                        <p className="text-sm text-gray-500">@{employee.username}</p>
-                      </div>
-                      <div className="text-right space-y-1">
-                        <div className="text-sm font-medium">Total: ₹{employee.total_earnings || 0}</div>
-                        <div className="text-xs text-orange-600">Pending: ₹{employee.pending_earnings || 0}</div>
-                        <div className="text-xs text-green-600">Credited: ₹{employee.credited_earnings || 0}</div>
-                        <div className="text-xs text-blue-600">Balance: ₹{employee.account_balance || 0}</div>
-                        <Badge variant={employee.is_active ? "default" : "secondary"}>
-                          {employee.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="balances" className="space-y-4">
-            <h2 className="text-xl font-semibold">Employee Balance Management</h2>
-            <div className="grid gap-4">
-              {employees.map((employee) => (
-                <EmployeeBalanceCard key={employee.id} employee={employee} onUpdate={fetchDashboardData} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payments" className="space-y-4">
-            <h2 className="text-xl font-semibold">Payment Management</h2>
-            <div className="grid gap-4">
-              {employeeEarnings.map((emp) => (
-                <Card key={emp.employee_id}>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center justify-between">
-                      {emp.employee_name}
-                      <div className="text-right text-sm space-y-1">
-                        <div>Total: ₹{emp.total_earnings}</div>
-                        <div className="text-orange-600">Pending: ₹{emp.pending_earnings}</div>
-                        <div className="text-green-600">Credited: ₹{emp.credited_earnings}</div>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {emp.payment_details.map((payment, idx) => (
-                        <PaymentCard key={idx} payment={payment} onUpdate={fetchDashboardData} />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="timetracking" className="space-y-4">
-            <h2 className="text-xl font-semibold">Time Tracking</h2>
-            <div className="grid gap-4">
-              {Object.entries(timeTracking).map(([userId, data]) => (
-                <Card key={userId}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{data.user_name}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {Object.entries(data.daily_hours).map(([date, minutes]) => (
-                        <div key={date} className="flex justify-between items-center">
-                          <span className="text-sm">{date}</span>
-                          <Badge variant="outline">
-                            {Math.round(minutes / 60 * 100) / 100} hours
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="submissions" className="space-y-4">
-            <h2 className="text-xl font-semibold">Submissions Review</h2>
-            <div className="grid gap-4">
-              {assignments.filter(a => a.has_submission && ['submitted', 'resubmitted'].includes(a.status)).map((assignment) => (
-                <SubmissionReviewCard 
-                  key={assignment.id} 
-                  assignment={assignment} 
-                  onUpdate={fetchDashboardData}
-                  onDownload={downloadFile}
-                />
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  );
-}
-
-// Employee Dashboard
-function EmployeeDashboard() {
+// Member Dashboard
+function MemberDashboard() {
   const [stats, setStats] = useState({});
   const [assignments, setAssignments] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [referralTree, setReferralTree] = useState([]);
+  const [showWithdrawalDialog, setShowWithdrawalDialog] = useState(false);
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -556,15 +316,33 @@ function EmployeeDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [statsRes, assignmentsRes] = await Promise.all([
+      const [statsRes, assignmentsRes, transactionsRes, treeRes] = await Promise.all([
         axios.get(`${API}/dashboard/stats`),
-        axios.get(`${API}/assignments`)
+        axios.get(`${API}/assignments`),
+        axios.get(`${API}/transactions`),
+        axios.get(`${API}/referral/tree`)
       ]);
       
       setStats(statsRes.data);
       setAssignments(assignmentsRes.data);
+      setTransactions(transactionsRes.data);
+      setReferralTree(treeRes.data);
     } catch (error) {
       toast.error('Failed to fetch dashboard data');
+    }
+  };
+
+  const handleWithdrawalRequest = async () => {
+    try {
+      await axios.post(`${API}/withdrawal/request`, new URLSearchParams({
+        amount: withdrawalAmount
+      }));
+      toast.success('Withdrawal request submitted successfully');
+      setShowWithdrawalDialog(false);
+      setWithdrawalAmount('');
+      fetchDashboardData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to request withdrawal');
     }
   };
 
@@ -574,17 +352,269 @@ function EmployeeDashboard() {
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-              <FileText className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Network className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Life Line's Work Portal</h1>
-              <p className="text-sm text-gray-600">Employee Dashboard</p>
+              <h1 className="text-2xl font-bold text-gray-900">Life Line's MLM Portal</h1>
+              <p className="text-sm text-gray-600">Member Dashboard</p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">Welcome, {user?.full_name}</span>
-            <Button onClick={logout} variant="outline" size="sm" data-testid="logout-button">
+            <Button onClick={logout} variant="outline" size="sm">
+              Logout
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-6 space-y-6">
+        {/* Registration Status */}
+        {!stats.registration_fee_paid && (
+          <Card className="bg-yellow-50 border-yellow-200">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <CreditCard className="w-5 h-5 text-yellow-600" />
+                <div>
+                  <h3 className="font-medium text-yellow-800">Registration Fee Required</h3>
+                  <p className="text-sm text-yellow-700">
+                    Please pay registration fee to start earning. Contact admin.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="bg-gradient-to-r from-green-500 to-emerald-600">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-6 h-6 text-white" />
+                <div>
+                  <div className="text-2xl font-bold text-white">₹{stats.current_balance || 0}</div>
+                  <div className="text-xs text-white/90">Current Balance</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-5 h-5 text-blue-600" />
+                <div>
+                  <div className="text-xl font-bold text-blue-600">₹{stats.total_earnings || 0}</div>
+                  <div className="text-xs text-gray-600">Total Earned</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-5 h-5 text-red-600" />
+                <div>
+                  <div className="text-xl font-bold text-red-600">₹{stats.total_withdrawn || 0}</div>
+                  <div className="text-xs text-gray-600">Withdrawn</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Users className="w-5 h-5 text-purple-600" />
+                <div>
+                  <div className="text-xl font-bold text-purple-600">{stats.direct_referrals || 0}/5</div>
+                  <div className="text-xs text-gray-600">Referrals</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-orange-600" />
+                <div>
+                  <div className="text-xl font-bold text-orange-600">{stats.pending_submissions || 0}</div>
+                  <div className="text-xs text-gray-600">Pending Work</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex space-x-4">
+          <Button 
+            onClick={() => setShowWithdrawalDialog(true)}
+            disabled={!stats.can_withdraw || (stats.current_balance || 0) < 100}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            Request Withdrawal
+          </Button>
+          
+          <Card className="flex-1 max-w-sm">
+            <CardContent className="p-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Your Referral Code</p>
+                <p className="text-xl font-bold text-blue-600">{stats.referral_code}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="work" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="work">Work Assignments</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="network">My Network</TabsTrigger>
+            <TabsTrigger value="earnings">Daily Earnings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="work" className="space-y-4">
+            <h2 className="text-xl font-semibold">Available Work</h2>
+            <div className="grid gap-4">
+              {assignments.map((assignment) => (
+                <MemberAssignmentCard key={assignment.id} assignment={assignment} onSubmit={fetchDashboardData} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="transactions" className="space-y-4">
+            <h2 className="text-xl font-semibold">Transaction History</h2>
+            <div className="space-y-2">
+              {transactions.map((transaction) => (
+                <TransactionCard key={transaction.id} transaction={transaction} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="network" className="space-y-4">
+            <h2 className="text-xl font-semibold">My Referral Network</h2>
+            <div className="space-y-4">
+              {referralTree.map((tree) => (
+                <ReferralTreeCard key={tree.id} tree={tree} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="earnings" className="space-y-4">
+            <h2 className="text-xl font-semibold">Daily Earnings</h2>
+            <div className="grid gap-2">
+              {Object.entries(stats.daily_earnings || {}).map(([date, amount]) => (
+                <Card key={date}>
+                  <CardContent className="p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">{date}</span>
+                      <span className="font-medium text-green-600">₹{amount}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Withdrawal Dialog */}
+        <Dialog open={showWithdrawalDialog} onOpenChange={setShowWithdrawalDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Withdrawal</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="amount">Withdrawal Amount</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  min="100"
+                  max={stats.current_balance}
+                  value={withdrawalAmount}
+                  onChange={(e) => setWithdrawalAmount(e.target.value)}
+                  placeholder="Minimum ₹100"
+                />
+              </div>
+              <div className="text-sm text-gray-600">
+                <p>Available Balance: ₹{stats.current_balance || 0}</p>
+                <p>UPI Address: {user?.upi_address}</p>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowWithdrawalDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleWithdrawalRequest}>
+                  Submit Request
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
+
+// Admin Dashboard (will implement in next iteration)
+function AdminDashboard() {
+  const [stats, setStats] = useState({});
+  const [users, setUsers] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState([]);
+  const [settings, setSettings] = useState({});
+  const { user, logout } = useAuth();
+
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
+
+  const fetchAdminData = async () => {
+    try {
+      const [statsRes, usersRes, assignmentsRes, submissionsRes, withdrawalsRes, settingsRes] = await Promise.all([
+        axios.get(`${API}/dashboard/stats`),
+        axios.get(`${API}/admin/users`),
+        axios.get(`${API}/assignments`),
+        axios.get(`${API}/admin/submissions`),
+        axios.get(`${API}/withdrawal/requests`),
+        axios.get(`${API}/admin/settings`)
+      ]);
+      
+      setStats(statsRes.data);
+      setUsers(usersRes.data);
+      setAssignments(assignmentsRes.data);
+      setSubmissions(submissionsRes.data);
+      setWithdrawalRequests(withdrawalsRes.data);
+      setSettings(settingsRes.data);
+    } catch (error) {
+      toast.error('Failed to fetch admin data');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center">
+              <Network className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Admin Control Panel</h1>
+              <p className="text-sm text-gray-600">Life Line's MLM Portal</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">Welcome, {user?.full_name}</span>
+            <Button onClick={logout} variant="outline" size="sm">
               Logout
             </Button>
           </div>
@@ -593,438 +623,125 @@ function EmployeeDashboard() {
 
       <div className="p-6 space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-blue-600" />
+                <Users className="w-5 h-5 text-blue-600" />
                 <div>
-                  <div className="text-xl font-bold text-blue-600">{stats.total_assignments || 0}</div>
-                  <div className="text-xs text-gray-600">Total Tasks</div>
+                  <div className="text-2xl font-bold text-blue-600">{stats.total_users || 0}</div>
+                  <div className="text-xs text-gray-600">Total Members</div>
                 </div>
               </div>
             </CardContent>
           </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-green-600" />
+                <div>
+                  <div className="text-2xl font-bold text-green-600">{stats.active_assignments || 0}</div>
+                  <div className="text-xs text-gray-600">Active Work</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-yellow-600" />
                 <div>
-                  <div className="text-xl font-bold text-yellow-600">{stats.pending_assignments || 0}</div>
-                  <div className="text-xs text-gray-600">Pending</div>
+                  <div className="text-2xl font-bold text-yellow-600">{stats.pending_submissions || 0}</div>
+                  <div className="text-xs text-gray-600">Pending Reviews</div>
                 </div>
               </div>
             </CardContent>
           </Card>
+          
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
+                <DollarSign className="w-5 h-5 text-red-600" />
                 <div>
-                  <div className="text-xl font-bold text-green-600">{stats.accepted_assignments || 0}</div>
-                  <div className="text-xs text-gray-600">Completed</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-indigo-600" />
-                <div>
-                  <div className="text-xl font-bold text-indigo-600">₹{stats.total_earnings || 0}</div>
-                  <div className="text-xs text-gray-600">Total Earnings</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-orange-600" />
-                <div>
-                  <div className="text-xl font-bold text-orange-600">₹{stats.pending_earnings || 0}</div>
-                  <div className="text-xs text-gray-600">Pending</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <div className="text-xl font-bold text-emerald-600">₹{stats.credited_earnings || 0}</div>
-                  <div className="text-xs text-gray-600">Credited</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-r from-purple-500 to-pink-500">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-5 h-5 text-white" />
-                <div>
-                  <div className="text-xl font-bold text-white">₹{stats.account_balance || 0}</div>
-                  <div className="text-xs text-white/90">Your Contribution</div>
+                  <div className="text-2xl font-bold text-red-600">{stats.pending_withdrawals || 0}</div>
+                  <div className="text-xs text-gray-600">Withdrawal Requests</div>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Assignments */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">My Assignments</h2>
-          <div className="grid gap-4">
-            {assignments.map((assignment) => (
-              <EmployeeAssignmentCard key={assignment.id} assignment={assignment} onSubmit={fetchDashboardData} />
-            ))}
-          </div>
-        </div>
+        {/* Admin Tabs - Basic implementation */}
+        <Tabs defaultValue="users" className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="users">Members</TabsTrigger>
+            <TabsTrigger value="work">Work Management</TabsTrigger>
+            <TabsTrigger value="submissions">Submissions</TabsTrigger>
+            <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="network">Network View</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Member Management</h2>
+            </div>
+            <div className="grid gap-4">
+              {users.map((member) => (
+                <AdminMemberCard key={member.id} member={member} onUpdate={fetchAdminData} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="work" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Work Assignment Management</h2>
+              <CreateWorkDialog onWorkCreated={fetchAdminData} />
+            </div>
+            <div className="grid gap-4">
+              {assignments.map((assignment) => (
+                <AdminAssignmentCard key={assignment.id} assignment={assignment} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="submissions" className="space-y-4">
+            <h2 className="text-xl font-semibold">Work Submissions Review</h2>
+            <div className="grid gap-4">
+              {submissions.filter(s => s.status === 'pending').map((submission) => (
+                <AdminSubmissionCard key={submission.id} submission={submission} onUpdate={fetchAdminData} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="withdrawals" className="space-y-4">
+            <h2 className="text-xl font-semibold">Withdrawal Requests</h2>
+            <div className="grid gap-4">
+              {withdrawalRequests.map((request) => (
+                <AdminWithdrawalCard key={request.id} request={request} onUpdate={fetchAdminData} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <h2 className="text-xl font-semibold">MLM Settings</h2>
+            <AdminSettingsCard settings={settings} onUpdate={fetchAdminData} />
+          </TabsContent>
+
+          <TabsContent value="network" className="space-y-4">
+            <h2 className="text-xl font-semibold">Network Overview</h2>
+            <p className="text-gray-600">Network visualization will be implemented here</p>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
 }
 
-// Admin Assignment Card Component
-function AdminAssignmentCard({ assignment, onUpdate, onDownload }) {
-  const statusColors = {
-    pending: 'bg-gray-100 text-gray-800',
-    submitted: 'bg-blue-100 text-blue-800', 
-    resubmitted: 'bg-purple-100 text-purple-800',
-    accepted: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800'
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{assignment.title}</CardTitle>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium">₹{assignment.amount}</span>
-            <Badge className={statusColors[assignment.status] || 'bg-gray-100 text-gray-800'}>
-              {assignment.status}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <p className="text-sm text-gray-600">{assignment.description}</p>
-          <div className="flex items-center justify-between text-sm">
-            <span>Assigned to: {assignment.employee_name}</span>
-            <span>Deadline: {new Date(assignment.deadline).toLocaleDateString()}</span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            {assignment.attachment_name && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => onDownload(assignment.id, 'attachment')}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Assignment File
-              </Button>
-            )}
-            
-            {assignment.has_submission && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => onDownload(assignment.id, 'submission')}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Submission File
-              </Button>
-            )}
-          </div>
-          
-          {assignment.submission && (
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-sm font-medium">Submitted: {new Date(assignment.submission.submitted_at).toLocaleString()}</p>
-              {assignment.submission.notes && (
-                <p className="text-sm text-gray-600 mt-1">{assignment.submission.notes}</p>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Submission Review Card
-function SubmissionReviewCard({ assignment, onUpdate, onDownload }) {
-  const [reviewAction, setReviewAction] = useState('');
-  const [comments, setComments] = useState('');
-  const [resubmissionHours, setResubmissionHours] = useState(48);
-  const [loading, setLoading] = useState(false);
-
-  const handleReview = async () => {
-    if (!reviewAction) return;
-    
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API}/assignments/${assignment.id}/review`, {
-        action: reviewAction,
-        comments: comments,
-        resubmission_hours: resubmissionHours
-      });
-      
-      toast.success(response.data.message);
-      onUpdate();
-      setReviewAction('');
-      setComments('');
-    } catch (error) {
-      toast.error('Failed to submit review');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{assignment.title}</CardTitle>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium">₹{assignment.amount}</span>
-            <Badge className="bg-blue-100 text-blue-800">
-              {assignment.status === 'resubmitted' ? 'Resubmitted' : 'New Submission'}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="bg-blue-50 p-3 rounded">
-            <p className="text-sm font-medium">Employee: {assignment.employee_name}</p>
-            <p className="text-sm text-gray-600">Submitted: {new Date(assignment.submission.submitted_at).toLocaleString()}</p>
-            {assignment.submission.notes && (
-              <p className="text-sm mt-2"><strong>Notes:</strong> {assignment.submission.notes}</p>
-            )}
-          </div>
-          
-          <div className="flex space-x-2">
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => onDownload(assignment.id, 'submission')}
-            >
-              <Download className="w-4 h-4 mr-1" />
-              Download Work
-            </Button>
-            
-            {assignment.attachment_name && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => onDownload(assignment.id, 'attachment')}
-              >
-                <Eye className="w-4 h-4 mr-1" />
-                Original Assignment
-              </Button>
-            )}
-          </div>
-          
-          <div className="border-t pt-4">
-            <h4 className="font-medium mb-2">Review Submission</h4>
-            
-            <div className="space-y-3">
-              <div className="flex space-x-2">
-                <Button 
-                  size="sm"
-                  variant={reviewAction === 'accept' ? 'default' : 'outline'}
-                  onClick={() => setReviewAction('accept')}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Accept
-                </Button>
-                <Button 
-                  size="sm"
-                  variant={reviewAction === 'reject' ? 'default' : 'outline'}
-                  onClick={() => setReviewAction('reject')}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <XCircle className="w-4 h-4 mr-1" />
-                  Reject
-                </Button>
-              </div>
-              
-              {reviewAction && (
-                <div className="space-y-2">
-                  <Textarea
-                    placeholder="Comments for employee..."
-                    value={comments}
-                    onChange={(e) => setComments(e.target.value)}
-                  />
-                  
-                  {reviewAction === 'reject' && (
-                    <div>
-                      <Label htmlFor="resubmission-hours">Resubmission deadline (hours)</Label>
-                      <Input
-                        id="resubmission-hours"
-                        type="number"
-                        value={resubmissionHours}
-                        onChange={(e) => setResubmissionHours(parseInt(e.target.value))}
-                        min="1"
-                        max="168"
-                      />
-                    </div>
-                  )}
-                  
-                  <Button onClick={handleReview} disabled={loading} className="w-full">
-                    {loading ? 'Submitting...' : `${reviewAction === 'accept' ? 'Accept' : 'Reject'} & Notify Employee`}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Employee Balance Card Component
-function EmployeeBalanceCard({ employee, onUpdate }) {
-  const [editing, setEditing] = useState(false);
-  const [newBalance, setNewBalance] = useState(employee.account_balance || 0);
-  const [loading, setLoading] = useState(false);
-
-  const handleUpdateBalance = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API}/employees/${employee.id}/balance`, {
-        employee_id: employee.id,
-        new_balance: parseFloat(newBalance)
-      });
-      
-      toast.success(response.data.message);
-      setEditing(false);
-      onUpdate();
-    } catch (error) {
-      toast.error('Failed to update balance');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-medium text-lg">{employee.full_name}</h3>
-            <p className="text-sm text-gray-600">{employee.email}</p>
-            <p className="text-sm text-gray-500">@{employee.username}</p>
-          </div>
-          <div className="text-right space-y-2">
-            {editing ? (
-              <div className="space-y-2">
-                <Input
-                  type="number"
-                  value={newBalance}
-                  onChange={(e) => setNewBalance(e.target.value)}
-                  placeholder="Enter new balance"
-                  className="w-32"
-                />
-                <div className="flex space-x-2">
-                  <Button size="sm" onClick={handleUpdateBalance} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="text-2xl font-bold text-purple-600 bg-purple-50 px-3 py-2 rounded">
-                  ₹{employee.account_balance || 0}
-                </div>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => {
-                    setNewBalance(employee.account_balance || 0);
-                    setEditing(true);
-                  }}
-                >
-                  Edit Balance
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Payment Card Component
-function PaymentCard({ payment, onUpdate }) {
-  const [loading, setLoading] = useState(false);
-
-  const handlePaymentAction = async (action) => {
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API}/assignments/${payment.assignment_id}/payment`, {
-        action: action
-      });
-      
-      toast.success(response.data.message);
-      onUpdate();
-    } catch (error) {
-      toast.error('Failed to update payment status');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="bg-gray-50 p-3 rounded flex items-center justify-between">
-      <div>
-        <p className="font-medium">{payment.assignment_title}</p>
-        <p className="text-sm text-gray-600">₹{payment.amount}</p>
-        <p className="text-xs text-gray-500">
-          Accepted: {new Date(payment.accepted_at).toLocaleDateString()}
-        </p>
-      </div>
-      <div className="flex items-center space-x-2">
-        <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
-          {payment.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
-        </Badge>
-        {payment.payment_status === 'paid' ? (
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => handlePaymentAction('mark_unpaid')}
-            disabled={loading}
-          >
-            Mark Unpaid
-          </Button>
-        ) : (
-          <Button 
-            size="sm"
-            onClick={() => handlePaymentAction('mark_paid')}
-            disabled={loading}
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            Mark Paid
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Employee Assignment Card
-function EmployeeAssignmentCard({ assignment, onSubmit }) {
+// Component implementations for Member Dashboard
+function MemberAssignmentCard({ assignment, onSubmit }) {
   const [showSubmissionDialog, setShowSubmissionDialog] = useState(false);
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState(null);
@@ -1037,17 +754,15 @@ function EmployeeAssignmentCard({ assignment, onSubmit }) {
       if (notes) formData.append('notes', notes);
       if (file) formData.append('file', file);
       
-      const response = await axios.post(`${API}/assignments/${assignment.id}/submit`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await axios.post(`${API}/assignments/${assignment.id}/submit`, formData);
       
-      toast.success(response.data.message);
+      toast.success('Work submitted successfully!');
       setShowSubmissionDialog(false);
       setNotes('');
       setFile(null);
       onSubmit();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to submit assignment');
+      toast.error(error.response?.data?.detail || 'Failed to submit work');
     } finally {
       setSubmitting(false);
     }
@@ -1059,27 +774,21 @@ function EmployeeAssignmentCard({ assignment, onSubmit }) {
         responseType: 'blob'
       });
       
-      const contentDisposition = response.headers['content-disposition'];
-      const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : 'assignment_file';
-      
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute('download', assignment.attachment_name || 'assignment_file');
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
     } catch (error) {
       toast.error('Failed to download attachment');
     }
   };
 
   const isOverdue = new Date(assignment.deadline) < new Date();
-  const canSubmit = ['pending', 'rejected'].includes(assignment.status) && !isOverdue;
-  const needsResubmission = assignment.status === 'rejected';
+  const hasSubmitted = assignment.has_submitted;
+  const submission = assignment.user_submission;
 
   return (
     <Card>
@@ -1087,27 +796,25 @@ function EmployeeAssignmentCard({ assignment, onSubmit }) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">{assignment.title}</CardTitle>
           <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium text-green-600">₹{assignment.amount}</span>
-            {isOverdue && assignment.status === 'pending' && (
-              <Badge variant="destructive">Overdue</Badge>
+            <span className="text-lg font-bold text-green-600">₹{assignment.amount}</span>
+            {hasSubmitted && (
+              <Badge 
+                className={{
+                  pending: 'bg-yellow-100 text-yellow-800',
+                  approved: 'bg-green-100 text-green-800',
+                  rejected: 'bg-red-100 text-red-800'
+                }[submission?.status] || 'bg-gray-100 text-gray-800'}
+              >
+                {submission?.status || 'submitted'}
+              </Badge>
             )}
-            <Badge 
-              className={{
-                pending: 'bg-gray-100 text-gray-800',
-                submitted: 'bg-blue-100 text-blue-800',
-                resubmitted: 'bg-purple-100 text-purple-800', 
-                accepted: 'bg-green-100 text-green-800',
-                rejected: 'bg-red-100 text-red-800'
-              }[assignment.status] || 'bg-gray-100 text-gray-800'}
-            >
-              {assignment.status}
-            </Badge>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           <p className="text-sm text-gray-600">{assignment.description}</p>
+          
           <div className="text-sm">
             <span className="font-medium">Deadline: </span>
             <span className={isOverdue ? 'text-red-600' : 'text-gray-700'}>
@@ -1116,91 +823,61 @@ function EmployeeAssignmentCard({ assignment, onSubmit }) {
           </div>
           
           {assignment.attachment_name && (
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={downloadAttachment}
-            >
+            <Button size="sm" variant="outline" onClick={downloadAttachment}>
               <Download className="w-4 h-4 mr-1" />
               {assignment.attachment_name}
             </Button>
           )}
           
-          {assignment.review_comments && (
-            <div className="bg-red-50 border border-red-200 p-3 rounded">
-              <p className="text-sm font-medium text-red-800">Review Comments:</p>
-              <p className="text-sm text-red-700 mt-1">{assignment.review_comments}</p>
-              {assignment.resubmission_deadline && (
-                <p className="text-xs text-red-600 mt-2">
-                  Resubmit by: {new Date(assignment.resubmission_deadline).toLocaleString()}
-                </p>
-              )}
+          {submission?.admin_comments && (
+            <div className={`p-3 rounded ${
+              submission.status === 'approved' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+            }`}>
+              <p className="text-sm font-medium">Admin Feedback:</p>
+              <p className="text-sm mt-1">{submission.admin_comments}</p>
             </div>
           )}
           
-          {assignment.status === 'accepted' && (
-            <div className="bg-green-50 border border-green-200 p-3 rounded">
-              <p className="text-sm font-medium text-green-800">
-                ✓ Work Accepted! ₹{assignment.amount} has been added to your earnings.
-              </p>
-            </div>
-          )}
-          
-          {canSubmit && (
+          {!hasSubmitted && !isOverdue && (
             <Dialog open={showSubmissionDialog} onOpenChange={setShowSubmissionDialog}>
               <DialogTrigger asChild>
-                <Button className="w-full" data-testid={`submit-assignment-${assignment.id}`}>
-                  {needsResubmission ? 'Resubmit Work' : 'Submit Work'}
+                <Button className="w-full">
+                  Submit Work
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>
-                    {needsResubmission ? 'Resubmit Assignment' : 'Submit Assignment'}: {assignment.title}
-                  </DialogTitle>
+                  <DialogTitle>Submit Work: {assignment.title}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="notes">Notes (optional)</Label>
                     <Textarea
                       id="notes"
-                      placeholder="Add any notes about your submission..."
+                      placeholder="Add notes about your submission..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="file">Upload File (required)</Label>
+                    <Label htmlFor="file">Upload Work File</Label>
                     <Input
                       id="file"
                       type="file"
                       onChange={(e) => setFile(e.target.files[0])}
-                      required
                     />
                   </div>
                   <div className="flex justify-end space-x-2">
                     <Button variant="outline" onClick={() => setShowSubmissionDialog(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={submitting || !file}>
-                      {submitting ? 'Submitting...' : (needsResubmission ? 'Resubmit' : 'Submit')}
+                    <Button onClick={handleSubmit} disabled={submitting}>
+                      {submitting ? 'Submitting...' : 'Submit Work'}
                     </Button>
                   </div>
                 </div>
               </DialogContent>
             </Dialog>
-          )}
-          
-          {assignment.status === 'submitted' && (
-            <div className="text-sm text-blue-600 font-medium">
-              ✓ Submitted successfully. You will be informed within 24 hours.
-            </div>
-          )}
-          
-          {assignment.status === 'resubmitted' && (
-            <div className="text-sm text-purple-600 font-medium">
-              ✓ Resubmitted successfully. You will be informed within 24 hours.
-            </div>
           )}
         </div>
       </CardContent>
@@ -1208,108 +885,119 @@ function EmployeeAssignmentCard({ assignment, onSubmit }) {
   );
 }
 
-// Create User Dialog
-function CreateUserDialog({ onUserCreated }) {
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    full_name: ''
-  });
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      await axios.post(`${API}/users`, formData);
-      toast.success('Employee created successfully!');
-      setOpen(false);
-      setFormData({ username: '', email: '', password: '', full_name: '' });
-      onUserCreated();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create employee');
-    } finally {
-      setLoading(false);
+function TransactionCard({ transaction }) {
+  const getTransactionColor = (type) => {
+    switch (type) {
+      case 'earning': return 'text-green-600';
+      case 'commission': return 'text-blue-600';
+      case 'withdrawal': return 'text-red-600';
+      default: return 'text-gray-600';
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button data-testid="create-employee-button">Add Employee</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create New Employee</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
+    <Card>
+      <CardContent className="p-3">
+        <div className="flex justify-between items-center">
           <div>
-            <Label htmlFor="full_name">Full Name</Label>
-            <Input
-              id="full_name"
-              data-testid="create-user-fullname"
-              value={formData.full_name}
-              onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-              placeholder="Enter full name"
-            />
+            <p className="font-medium">{transaction.description}</p>
+            <p className="text-xs text-gray-500">
+              {new Date(transaction.date).toLocaleString()}
+            </p>
           </div>
-          <div>
-            <Label htmlFor="username">Username</Label>
-            <Input
-              id="username"
-              data-testid="create-user-username"
-              value={formData.username}
-              onChange={(e) => setFormData({...formData, username: e.target.value})}
-              placeholder="Enter username"
-            />
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              data-testid="create-user-email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              placeholder="Enter email"
-            />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              data-testid="create-user-password"
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              placeholder="Enter password"
-            />
-          </div>
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={loading} data-testid="create-user-submit">
-              {loading ? 'Creating...' : 'Create Employee'}
-            </Button>
+          <div className={`text-right ${getTransactionColor(transaction.type)}`}>
+            <p className="font-bold">
+              {transaction.type === 'withdrawal' ? '-' : '+'}₹{Math.abs(transaction.amount)}
+            </p>
+            <p className="text-xs capitalize">{transaction.type}</p>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 }
 
-// Create Assignment Dialog
-function CreateAssignmentDialog({ employees, onAssignmentCreated }) {
+function ReferralTreeCard({ tree }) {
+  const renderTree = (node, level = 0) => {
+    return (
+      <div key={node.id} className={`ml-${level * 4}`}>
+        <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded mb-2">
+          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+            L{node.level}
+          </div>
+          <div className="flex-1">
+            <p className="font-medium">{node.name}</p>
+            <p className="text-xs text-gray-600">{node.mobile}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-medium text-green-600">₹{node.earnings}</p>
+          </div>
+        </div>
+        {node.children && node.children.map(child => renderTree(child, level + 1))}
+      </div>
+    );
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        {renderTree(tree)}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Admin Component Stubs (basic implementations)
+function AdminMemberCard({ member, onUpdate }) {
+  const markRegistrationPaid = async () => {
+    try {
+      await axios.post(`${API}/admin/mark-registration-paid/${member.id}`);
+      toast.success('Registration marked as paid');
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to update registration status');
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-medium">{member.full_name}</h3>
+            <p className="text-sm text-gray-600">{member.mobile_number}</p>
+            <p className="text-sm text-gray-500">{member.upi_address}</p>
+            <p className="text-xs text-gray-400">Code: {member.referral_code}</p>
+          </div>
+          <div className="text-right space-y-2">
+            <div className="space-y-1">
+              <div className="text-sm">Balance: ₹{member.current_balance || 0}</div>
+              <div className="text-xs text-gray-600">Referrals: {member.direct_referrals?.length || 0}</div>
+            </div>
+            <div className="space-x-2">
+              <Badge variant={member.registration_fee_paid ? "default" : "destructive"}>
+                {member.registration_fee_paid ? 'Paid' : 'Unpaid'}
+              </Badge>
+              {!member.registration_fee_paid && (
+                <Button size="sm" onClick={markRegistrationPaid}>
+                  Mark Paid
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreateWorkDialog({ onWorkCreated }) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    assigned_to: '',
-    deadline: new Date(),
-    amount: 0,
-    review_deadline_hours: 24
+    amount: '',
+    deadline: new Date()
   });
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1320,30 +1008,19 @@ function CreateAssignmentDialog({ employees, onAssignmentCreated }) {
       const submitData = new FormData();
       submitData.append('title', formData.title);
       submitData.append('description', formData.description);
-      submitData.append('assigned_to', formData.assigned_to);
-      submitData.append('deadline', formData.deadline.toISOString());
       submitData.append('amount', formData.amount);
-      submitData.append('review_deadline_hours', formData.review_deadline_hours);
+      submitData.append('deadline', formData.deadline.toISOString());
       if (file) submitData.append('file', file);
       
-      await axios.post(`${API}/assignments`, submitData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await axios.post(`${API}/assignments`, submitData);
       
-      toast.success('Assignment created successfully!');
+      toast.success('Work assignment created successfully!');
       setOpen(false);
-      setFormData({ 
-        title: '', 
-        description: '', 
-        assigned_to: '', 
-        deadline: new Date(),
-        amount: 0,
-        review_deadline_hours: 24
-      });
+      setFormData({ title: '', description: '', amount: '', deadline: new Date() });
       setFile(null);
-      onAssignmentCreated();
+      onWorkCreated();
     } catch (error) {
-      toast.error('Failed to create assignment');
+      toast.error('Failed to create work assignment');
     } finally {
       setLoading(false);
     }
@@ -1352,72 +1029,46 @@ function CreateAssignmentDialog({ employees, onAssignmentCreated }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button data-testid="create-assignment-button">Create Assignment</Button>
+        <Button>Create Work Assignment</Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create New Assignment</DialogTitle>
+          <DialogTitle>Create New Work Assignment</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
-              data-testid="assignment-title"
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="Enter assignment title"
+              placeholder="Enter work title"
             />
           </div>
           <div>
-            <Label htmlFor="description">Task Description</Label>
+            <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              data-testid="assignment-description"
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
-              placeholder="Describe the task (e.g., Download the attached image/PDF and create a poster, PowerPoint presentation, or Word document based on the requirements)"
-              rows={4}
+              placeholder="Describe the work to be done"
             />
           </div>
           <div>
-            <Label htmlFor="amount">Amount (₹)</Label>
+            <Label htmlFor="amount">Payment Amount (₹)</Label>
             <Input
               id="amount"
               type="number"
               value={formData.amount}
-              onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
+              onChange={(e) => setFormData({...formData, amount: e.target.value})}
               placeholder="Enter payment amount"
             />
-          </div>
-          <div>
-            <Label htmlFor="assigned_to">Assign to Employee</Label>
-            <Select value={formData.assigned_to} onValueChange={(value) => setFormData({...formData, assigned_to: value})}>
-              <SelectTrigger data-testid="assignment-employee-select">
-                <SelectValue placeholder="Select employee or assign to all" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all_employees" className="font-medium text-blue-600">
-                  📢 Assign to All Employees
-                </SelectItem>
-                <div className="border-t my-1"></div>
-                {employees.map((employee) => (
-                  <SelectItem key={employee.id} value={employee.id}>
-                    {employee.full_name} ({employee.username})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div>
             <Label>Deadline</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                  data-testid="assignment-deadline-picker"
-                >
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
                   {format(formData.deadline, "PPP")}
                 </Button>
               </PopoverTrigger>
@@ -1432,39 +1083,245 @@ function CreateAssignmentDialog({ employees, onAssignmentCreated }) {
             </Popover>
           </div>
           <div>
-            <Label htmlFor="review_hours">Review Deadline (hours)</Label>
-            <Input
-              id="review_hours"
-              type="number"
-              value={formData.review_deadline_hours}
-              onChange={(e) => setFormData({...formData, review_deadline_hours: parseInt(e.target.value) || 24})}
-              min="1"
-              max="168"
-            />
-          </div>
-          <div>
-            <Label htmlFor="file">Task Material (Image/PDF/Document)</Label>
+            <Label htmlFor="file">Attachment (optional)</Label>
             <Input
               id="file"
               type="file"
-              accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
               onChange={(e) => setFile(e.target.files[0])}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Upload images, PDFs, or documents that employees need to work with
-            </p>
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={loading} data-testid="create-assignment-submit">
+            <Button onClick={handleSubmit} disabled={loading}>
               {loading ? 'Creating...' : 'Create Assignment'}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Placeholder components for admin functions
+function AdminAssignmentCard({ assignment }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="font-medium">{assignment.title}</h3>
+            <p className="text-sm text-gray-600">{assignment.description}</p>
+            <p className="text-xs text-gray-500">Deadline: {new Date(assignment.deadline).toLocaleDateString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="font-bold text-green-600">₹{assignment.amount}</p>
+            <Badge>{assignment.is_active ? 'Active' : 'Inactive'}</Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminSubmissionCard({ submission, onUpdate }) {
+  const handleReview = async (action) => {
+    try {
+      const formData = new FormData();
+      formData.append('action', action);
+      
+      await axios.post(`${API}/submissions/${submission.id}/review`, formData);
+      toast.success(`Submission ${action}d successfully`);
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to review submission');
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium">{submission.assignment_title}</h3>
+              <p className="text-sm text-gray-600">By: {submission.user_name} ({submission.user_mobile})</p>
+              <p className="text-xs text-gray-500">Submitted: {new Date(submission.submitted_at).toLocaleString()}</p>
+            </div>
+            <span className="font-bold text-green-600">₹{submission.assignment_amount}</span>
+          </div>
+          
+          {submission.notes && (
+            <div className="bg-gray-50 p-2 rounded">
+              <p className="text-sm">{submission.notes}</p>
+            </div>
+          )}
+          
+          <div className="flex space-x-2">
+            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReview('approve')}>
+              <CheckCircle className="w-4 h-4 mr-1" />
+              Approve
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => handleReview('reject')}>
+              <XCircle className="w-4 h-4 mr-1" />
+              Reject
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminWithdrawalCard({ request, onUpdate }) {
+  const handleProcess = async (action) => {
+    try {
+      const formData = new FormData();
+      formData.append('action', action);
+      
+      await axios.post(`${API}/withdrawal/${request.id}/process`, formData);
+      toast.success(`Withdrawal ${action}d successfully`);
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to process withdrawal');
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="font-medium">{request.user_name}</h3>
+            <p className="text-sm text-gray-600">{request.user_mobile}</p>
+            <p className="text-sm text-gray-600">UPI: {request.upi_address}</p>
+            <p className="text-xs text-gray-500">Requested: {new Date(request.requested_at).toLocaleString()}</p>
+          </div>
+          <div className="text-right space-y-2">
+            <p className="text-xl font-bold text-red-600">₹{request.amount}</p>
+            <Badge className={{
+              pending: 'bg-yellow-100 text-yellow-800',
+              approved: 'bg-blue-100 text-blue-800',
+              paid: 'bg-green-100 text-green-800',
+              rejected: 'bg-red-100 text-red-800'
+            }[request.status]}>
+              {request.status}
+            </Badge>
+            {request.status === 'pending' && (
+              <div className="space-x-2">
+                <Button size="sm" onClick={() => handleProcess('approve')}>
+                  Approve
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleProcess('reject')}>
+                  Reject
+                </Button>
+              </div>
+            )}
+            {request.status === 'approved' && (
+              <Button size="sm" className="bg-green-600" onClick={() => handleProcess('mark_paid')}>
+                Mark Paid
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminSettingsCard({ settings, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState(settings);
+
+  const handleSave = async () => {
+    try {
+      const submitData = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          submitData.append(key, value);
+        }
+      });
+      
+      await axios.post(`${API}/admin/settings`, submitData);
+      toast.success('Settings updated successfully');
+      setEditing(false);
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to update settings');
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">System Settings</h3>
+            <Button onClick={() => setEditing(!editing)}>
+              {editing ? 'Cancel' : 'Edit'}
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Registration Fee (₹)</Label>
+              {editing ? (
+                <Input
+                  type="number"
+                  value={formData.registration_fee || ''}
+                  onChange={(e) => setFormData({...formData, registration_fee: parseFloat(e.target.value)})}
+                />
+              ) : (
+                <p className="font-medium">₹{settings.registration_fee || 0}</p>
+              )}
+            </div>
+            
+            <div>
+              <Label>Minimum Withdrawal (₹)</Label>
+              {editing ? (
+                <Input
+                  type="number"
+                  value={formData.minimum_withdrawal || ''}
+                  onChange={(e) => setFormData({...formData, minimum_withdrawal: parseFloat(e.target.value)})}
+                />
+              ) : (
+                <p className="font-medium">₹{settings.minimum_withdrawal || 0}</p>
+              )}
+            </div>
+          </div>
+          
+          <div>
+            <Label>Commission Rates (%)</Label>
+            <div className="grid grid-cols-5 gap-2 mt-2">
+              {[1,2,3,4,5].map(level => (
+                <div key={level}>
+                  <Label className="text-xs">Level {level}</Label>
+                  {editing ? (
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={formData[`commission_l${level}`] || ''}
+                      onChange={(e) => setFormData({...formData, [`commission_l${level}`]: parseFloat(e.target.value)})}
+                    />
+                  ) : (
+                    <p className="font-medium">{settings[`commission_l${level}`] || 0}%</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {editing && (
+            <div className="flex justify-end">
+              <Button onClick={handleSave}>
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1489,17 +1346,17 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-teal-800 to-cyan-900">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
       </div>
     );
   }
 
   if (!user) {
-    return <Login />;
+    return <LoginRegister />;
   }
 
-  return user.role === 'admin' ? <AdminDashboard /> : <EmployeeDashboard />;
+  return user.role === 'admin' ? <AdminDashboard /> : <MemberDashboard />;
 }
 
 export default App;
