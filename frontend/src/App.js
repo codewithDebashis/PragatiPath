@@ -799,55 +799,6 @@ function AdminDashboard() {
   );
 }
 
-// Referral Link Component
-function ReferralLinkCard({ referralCode }) {
-  const [copied, setCopied] = useState(false);
-  
-  const referralLink = `${window.location.origin}?ref=${referralCode}`;
-  
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(referralLink);
-      setCopied(true);
-      toast.success('Referral link copied to clipboard!');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      toast.error('Failed to copy referral link');
-    }
-  };
-
-  return (
-    <Card className="flex-1 max-w-lg">
-      <CardContent className="p-4">
-        <div className="space-y-3">
-          <div className="text-center">
-            <p className="text-sm text-gray-600">Your Referral Code</p>
-            <p className="text-xl font-bold text-blue-600">{referralCode}</p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label className="text-sm">Share this link to earn commissions:</Label>
-            <div className="flex space-x-2">
-              <Input 
-                value={referralLink} 
-                readOnly 
-                className="text-xs bg-gray-50"
-              />
-              <Button 
-                onClick={copyToClipboard}
-                size="sm"
-                className={copied ? "bg-green-600" : "bg-blue-600"}
-              >
-                {copied ? '✓ Copied' : 'Copy Link'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // Component implementations for Member Dashboard
 function MemberAssignmentCard({ assignment, onSubmit }) {
   const [showSubmissionDialog, setShowSubmissionDialog] = useState(false);
