@@ -386,6 +386,7 @@ async def create_assignment(
     description: str = Form(...),
     amount: float = Form(...),
     deadline: str = Form(...),
+    assigned_to: str = Form(...),  # "all_members" or specific user_id
     file: Optional[UploadFile] = File(None),
     current_user: MLMUser = Depends(get_current_user)
 ):
@@ -405,10 +406,37 @@ async def create_assignment(
         assignment_data["attachment_name"] = file.filename
         assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
     
-    assignment = MLMWorkAssignment(**assignment_data)
-    await db.mlm_assignments.insert_one(prepare_for_mongo(assignment.dict()))
-    
-    return {"message": "Assignment created successfully", "id": assignment.id}
+    # Handle assignment to all members vs specific member
+    if assigned_to == "all_members":
+        # Get all active members with paid registration
+        members = await db.mlm_users.find({
+            "role": "member", 
+            "is_active": True, 
+            "registration_fee_paid": True
+        }).to_list(None)
+        
+        assignment_ids = []
+        for member in members:
+            # Create individual assignment for each member
+            member_assignment_data = assignment_data.copy()
+            member_assignment_data["assigned_to"] = member["id"]
+            
+            assignment = MLMWorkAssignment(**member_assignment_data)
+            await db.mlm_assignments.insert_one(prepare_for_mongo(assignment.dict()))
+            assignment_ids.append(assignment.id)
+        
+        return {
+            "message": f"Assignment created for {len(members)} members",
+            "assignment_ids": assignment_ids,
+            "members_count": len(members)
+        }
+    else:
+        # Single member assignment
+        assignment_data["assigned_to"] = assigned_to
+        assignment = MLMWorkAssignment(**assignment_data)
+        await db.mlm_assignments.insert_one(prepare_for_mongo(assignment.dict()))
+        
+        return {"message": "Assignment created successfully", "id": assignment.id}
 
 @api_router.post("/assignments/{assignment_id}/submit")
 async def submit_assignment(
