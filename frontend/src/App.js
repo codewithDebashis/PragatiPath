@@ -983,6 +983,43 @@ function ReferralTreeCard({ tree }) {
   );
 }
 
+// Referral Link Card Component
+function ReferralLinkCard({ referralCode }) {
+  const [copied, setCopied] = useState(false);
+  
+  const referralLink = `${window.location.origin}?ref=${referralCode}`;
+  
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setCopied(true);
+      toast.success('Referral link copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast.error('Failed to copy link');
+    }
+  };
+  
+  return (
+    <Card className="flex-1 max-w-sm">
+      <CardContent className="p-4">
+        <div className="text-center space-y-2">
+          <p className="text-sm text-gray-600">Your Referral Code</p>
+          <p className="text-xl font-bold text-blue-600">{referralCode}</p>
+          <Button 
+            onClick={copyToClipboard}
+            variant="outline"
+            size="sm"
+            className="w-full"
+          >
+            {copied ? 'Copied!' : 'Copy Referral Link'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // Admin Component Stubs (basic implementations)
 function AdminMemberCard({ member, onUpdate }) {
   const markRegistrationPaid = async () => {
