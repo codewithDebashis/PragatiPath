@@ -123,50 +123,70 @@ class MLMPortalAPITester:
             return True
         return False
 
-    def test_dashboard_stats_admin(self):
-        """Test admin dashboard stats"""
-        success, response = self.run_test(
-            "Admin Dashboard Stats",
-            "GET",
-            "dashboard/stats",
-            200
-        )
-        
-        if success and isinstance(response, dict):
-            expected_keys = ['total_employees', 'total_assignments', 'pending_assignments', 'submitted_assignments']
-            for key in expected_keys:
-                if key not in response:
-                    print(f"❌ Missing key in stats: {key}")
-                    return False
-            print(f"   Stats: {response}")
-        return success
-
-    def test_create_employee(self):
-        """Test creating an employee"""
+    def test_create_test_members(self):
+        """Create test members for testing"""
         print("\n" + "="*50)
-        print("TESTING EMPLOYEE MANAGEMENT")
+        print("TESTING MEMBER REGISTRATION")
         print("="*50)
         
-        employee_data = {
-            "username": "testemployee",
-            "email": "test@company.com",
-            "password": "testpass123",
-            "full_name": "Test Employee",
-            "role": "employee"
+        # Create first member (will be used for referrals)
+        member1_data = {
+            "mobile_number": "8888888881",
+            "full_name": "Rajesh Kumar",
+            "upi_address": "rajesh@paytm",
+            "password": "member123"
         }
         
-        success, response = self.run_test(
-            "Admin Create Employee",
+        success1, response1 = self.run_test(
+            "Create Member 1",
             "POST",
-            "users",
+            "auth/register",
             200,
-            data=employee_data
+            data=member1_data
         )
         
-        if success and isinstance(response, dict) and 'id' in response:
-            self.employee_id = response['id']
-            print(f"   Employee created with ID: {self.employee_id}")
-        return success
+        if success1 and isinstance(response1, dict) and 'user_id' in response1:
+            self.member_id = response1['user_id']
+            print(f"   Member 1 created with ID: {self.member_id}")
+            print(f"   Referral code: {response1.get('referral_code', 'N/A')}")
+            
+            # Login as member 1
+            login_success, login_response = self.run_test(
+                "Member 1 Login",
+                "POST",
+                "auth/login",
+                200,
+                data={"mobile_number": "8888888881", "password": "member123"}
+            )
+            
+            if login_success and 'access_token' in login_response:
+                self.member_token = login_response['access_token']
+                print(f"   Member 1 token obtained")
+        
+        # Create additional members for referral testing
+        for i in range(2, 7):  # Create 5 more members (total 6)
+            member_data = {
+                "mobile_number": f"888888888{i}",
+                "full_name": f"Test Member {i}",
+                "upi_address": f"member{i}@paytm",
+                "password": "member123",
+                "referred_by_code": response1.get('referral_code') if success1 else None
+            }
+            
+            success, response = self.run_test(
+                f"Create Member {i} (Referral)",
+                "POST",
+                "auth/register",
+                200,
+                data=member_data
+            )
+            
+            if i == 2 and success:
+                self.member2_id = response.get('user_id')
+            elif i == 3 and success:
+                self.member3_id = response.get('user_id')
+        
+        return success1
 
     def test_get_employees(self):
         """Test getting employees list"""
