@@ -360,25 +360,54 @@ async def mark_registration_paid(user_id: str, current_user: MLMUser = Depends(g
 
 @api_router.get("/assignments")
 async def get_assignments(current_user: MLMUser = Depends(get_current_user)):
-    # Get all active assignments
-    assignments = await db.mlm_assignments.find({"is_active": True}).to_list(None)
-    
-    result = []
-    for assignment in assignments:
-        parsed = parse_from_mongo(assignment)
+    if current_user.role == "admin":
+        # Admin sees all assignments with member details
+        assignments = await db.mlm_assignments.find({"is_active": True}).to_list(None)
         
-        # Check if user has submitted this assignment
-        submission = await db.mlm_submissions.find_one({
-            "assignment_id": parsed["id"],
-            "user_id": current_user.id
-        })
+        result = []
+        for assignment in assignments:
+            parsed = parse_from_mongo(assignment)
+            
+            # Get assigned member details
+            member = await db.mlm_users.find_one({"id": parsed["assigned_to"]})
+            if member:
+                parsed["member_name"] = member["full_name"]
+                parsed["member_mobile"] = member["mobile_number"]
+            
+            # Check for submission
+            submission = await db.mlm_submissions.find_one({
+                "assignment_id": parsed["id"]
+            })
+            parsed["has_submission"] = submission is not None
+            if submission:
+                parsed["submission"] = parse_from_mongo(submission)
+            
+            result.append(parsed)
         
-        parsed["user_submission"] = parse_from_mongo(submission) if submission else None
-        parsed["has_submitted"] = submission is not None
+        return result
+    else:
+        # Member sees only their assignments
+        assignments = await db.mlm_assignments.find({
+            "assigned_to": current_user.id,
+            "is_active": True
+        }).to_list(None)
         
-        result.append(parsed)
-    
-    return result
+        result = []
+        for assignment in assignments:
+            parsed = parse_from_mongo(assignment)
+            
+            # Check if user has submitted this assignment
+            submission = await db.mlm_submissions.find_one({
+                "assignment_id": parsed["id"],
+                "user_id": current_user.id
+            })
+            
+            parsed["user_submission"] = parse_from_mongo(submission) if submission else None
+            parsed["has_submitted"] = submission is not None
+            
+            result.append(parsed)
+        
+        return result
 
 @api_router.post("/assignments")
 async def create_assignment(
