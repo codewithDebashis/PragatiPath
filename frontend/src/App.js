@@ -1093,6 +1093,7 @@ function CreateWorkDialog({ onWorkCreated }) {
       submitData.append('description', formData.description);
       submitData.append('amount', formData.amount);
       submitData.append('deadline', formData.deadline.toISOString());
+      submitData.append('assigned_to', formData.assigned_to);
       if (file) submitData.append('file', file);
       
       await axios.post(`${API}/assignments`, submitData);
