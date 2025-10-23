@@ -496,14 +496,7 @@ function MemberDashboard() {
             Request Withdrawal
           </Button>
           
-          <Card className="flex-1 max-w-sm">
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-sm text-gray-600">Your Referral Code</p>
-                <p className="text-xl font-bold text-blue-600">{stats.referral_code}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <ReferralLinkCard referralCode={stats.referral_code} />
         </div>
 
         {/* Main Content Tabs */}
