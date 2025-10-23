@@ -124,6 +124,20 @@ class WithdrawalRequest(BaseModel):
     processed_by: Optional[str] = None
     admin_comments: Optional[str] = None
 
+class DailyWorkReport(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    date: str  # YYYY-MM-DD format
+    class_name: str
+    subject: str
+    details: str
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class InstallmentPayment(BaseModel):
+    user_id: str
+    installment_number: int  # 1-10
+    amount: float
+
 class MLMSettings(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     registration_fee: float = 500.0
