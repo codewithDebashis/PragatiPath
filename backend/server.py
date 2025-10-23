@@ -861,6 +861,20 @@ async def get_settings(current_user: MLMUser = Depends(get_current_user)):
     settings = await get_mlm_settings()
     return settings.dict()
 
+@api_router.get("/referral/validate/{referral_code}")
+async def validate_referral_code(referral_code: str):
+    """Validate referral code and return referrer info"""
+    referrer = await db.mlm_users.find_one({"referral_code": referral_code})
+    if not referrer:
+        raise HTTPException(status_code=404, detail="Invalid referral code")
+    
+    return {
+        "valid": True,
+        "referrer_name": referrer["full_name"],
+        "referrer_mobile": referrer["mobile_number"],
+        "referral_code": referral_code
+    }
+
 @api_router.post("/admin/change-password")
 async def admin_change_password(
     new_password: str = Form(...),
