@@ -468,7 +468,8 @@ class MLMPortalAPITester:
                     "withdrawal/request",
                     400,  # Should fail
                     data=withdrawal_data,
-                    token=no_ref_token
+                    token=no_ref_token,
+                    form_data=True
                 )
                 
                 if success3:
