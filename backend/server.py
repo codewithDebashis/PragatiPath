@@ -506,9 +506,9 @@ async def submit_assignment(
     if existing_submission:
         raise HTTPException(status_code=400, detail="Assignment already submitted")
     
-    # Check registration fee
-    if not current_user.registration_fee_paid:
-        raise HTTPException(status_code=400, detail="Registration fee must be paid before submitting work")
+    # Check if user can work (paid at least one installment)
+    if not current_user.can_work:
+        raise HTTPException(status_code=400, detail="Please pay at least one registration installment to submit work")
     
     submission_data = {
         "assignment_id": assignment_id,
@@ -517,6 +517,14 @@ async def submit_assignment(
     }
     
     if file:
+        # Validate file type
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', 
+                            '.ppt', '.pptx', '.xls', '.xlsx', '.mp4', '.avi', '.mov', '.wmv'}
+        
+        file_ext = Path(file.filename).suffix.lower() if file.filename else ''
+        if file_ext not in allowed_extensions:
+            raise HTTPException(status_code=400, detail=f"File type {file_ext} not supported. Allowed types: images, PDF, Office files, videos")
+        
         file_content = await file.read()
         submission_data["submission_file_name"] = file.filename
         submission_data["submission_file_data"] = base64.b64encode(file_content).decode('utf-8')
