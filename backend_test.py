@@ -434,8 +434,10 @@ class MLMPortalAPITester:
                 return True
         
         # Create a new member with no referrals to test the restriction
+        import time
+        timestamp2 = str(int(time.time()))[-3:]  # Different timestamp
         member_no_ref_data = {
-            "mobile_number": "7777777777",
+            "mobile_number": f"7777{timestamp2}777",
             "full_name": "No Referral Member",
             "upi_address": "noref@paytm",
             "password": "member123"
