@@ -744,11 +744,12 @@ function AdminDashboard() {
 
         {/* Admin Tabs - Basic implementation */}
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="users">Members</TabsTrigger>
             <TabsTrigger value="work">Work Management</TabsTrigger>
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
             <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
+            <TabsTrigger value="dailyreports">Daily Reports</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="network">Network View</TabsTrigger>
           </TabsList>
