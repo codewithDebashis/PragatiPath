@@ -20,7 +20,7 @@ class MLMPortalAPITester:
         self.failed_tests = []
         self.test_results = {}
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, files=None, headers=None, token=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, files=None, headers=None, token=None, form_data=False):
         """Run a single API test"""
         url = f"{self.base_url}/{endpoint}"
         test_headers = {}
@@ -47,6 +47,9 @@ class MLMPortalAPITester:
                 if files:
                     # Don't set Content-Type for multipart/form-data
                     response = requests.post(url, data=data, files=files, headers=test_headers)
+                elif form_data and data:
+                    # Send as form data
+                    response = requests.post(url, data=data, headers=test_headers)
                 elif data and not files:
                     test_headers['Content-Type'] = 'application/json'
                     response = requests.post(url, json=data, headers=test_headers)
