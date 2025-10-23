@@ -97,6 +97,10 @@ class MLMPortalAPITester:
             "init",
             200
         )
+        
+        if success:
+            print("   ✅ System initialized with admin user")
+        
         return success
 
     def test_admin_login(self):
@@ -110,7 +114,7 @@ class MLMPortalAPITester:
             "POST",
             "auth/login",
             200,
-            data={"username": "admin", "password": "admin"}
+            data={"mobile_number": "9999999999", "password": "admin123"}
         )
         
         if success and isinstance(response, dict) and 'access_token' in response:
