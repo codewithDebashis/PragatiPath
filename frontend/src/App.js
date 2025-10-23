@@ -1015,6 +1015,8 @@ function ReferralLinkCard({ referralCode }) {
 
 // Admin Component Stubs (basic implementations)
 function AdminMemberCard({ member, onUpdate }) {
+  const [showNetwork, setShowNetwork] = useState(false);
+
   const markRegistrationPaid = async () => {
     try {
       await axios.post(`${API}/admin/mark-registration-paid/${member.id}`);
@@ -1028,29 +1030,67 @@ function AdminMemberCard({ member, onUpdate }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-medium">{member.full_name}</h3>
-            <p className="text-sm text-gray-600">{member.mobile_number}</p>
-            <p className="text-sm text-gray-500">{member.upi_address}</p>
-            <p className="text-xs text-gray-400">Code: {member.referral_code}</p>
-          </div>
-          <div className="text-right space-y-2">
-            <div className="space-y-1">
-              <div className="text-sm">Balance: ₹{member.current_balance || 0}</div>
-              <div className="text-xs text-gray-600">Referrals: {member.direct_referrals?.length || 0}</div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">{member.full_name}</h3>
+              <p className="text-sm text-gray-600">{member.mobile_number}</p>
+              <p className="text-sm text-gray-500">{member.upi_address}</p>
+              <p className="text-xs text-gray-400">Code: {member.referral_code}</p>
             </div>
-            <div className="space-x-2">
-              <Badge variant={member.registration_fee_paid ? "default" : "destructive"}>
-                {member.registration_fee_paid ? 'Paid' : 'Unpaid'}
-              </Badge>
-              {!member.registration_fee_paid && (
-                <Button size="sm" onClick={markRegistrationPaid}>
-                  Mark Paid
-                </Button>
+            <div className="text-right space-y-2">
+              <div className="space-y-1">
+                <div className="text-sm">Balance: ₹{member.current_balance || 0}</div>
+                <div className="text-xs text-gray-600">Direct Referrals: {member.downline_count || 0}</div>
+              </div>
+              <div className="space-x-2">
+                <Badge variant={member.registration_fee_paid ? "default" : "destructive"}>
+                  {member.registration_fee_paid ? 'Paid' : 'Unpaid'}
+                </Badge>
+                {!member.registration_fee_paid && (
+                  <Button size="sm" onClick={markRegistrationPaid}>
+                    Mark Paid
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Show downline members */}
+          {member.downline_count > 0 && (
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowNetwork(!showNetwork)}
+                className="w-full"
+              >
+                <TreePine className="w-4 h-4 mr-1" />
+                {showNetwork ? 'Hide' : 'View'} Network ({member.downline_count} joiners)
+              </Button>
+              
+              {showNetwork && (
+                <div className="mt-3 space-y-2 pl-4 border-l-2 border-gray-200">
+                  {member.downline_members?.map((joiner) => (
+                    <div key={joiner.id} className="bg-gray-50 p-2 rounded text-sm">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">{joiner.full_name}</p>
+                          <p className="text-xs text-gray-600">{joiner.mobile_number}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-green-600">₹{joiner.total_earnings || 0}</p>
+                          <Badge size="sm" variant={joiner.registration_fee_paid ? "default" : "destructive"}>
+                            {joiner.registration_fee_paid ? 'Active' : 'Pending'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
