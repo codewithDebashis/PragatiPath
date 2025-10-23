@@ -798,7 +798,93 @@ async def get_all_users(current_user: MLMUser = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Only admin can view all users")
     
     users = await db.mlm_users.find({"role": "member"}).to_list(None)
-    return [parse_from_mongo(user) for user in users]
+    
+    result = []
+    for user in users:
+        parsed = parse_from_mongo(user)
+        
+        # Get downline members (joiners)
+        downline = await db.mlm_users.find({
+            "referred_by": user["referral_code"]
+        }).to_list(None)
+        
+        parsed["downline_members"] = [
+            {
+                "id": member["id"],
+                "full_name": member["full_name"],
+                "mobile_number": member["mobile_number"],
+                "registration_fee_paid": member.get("registration_fee_paid", False),
+                "total_earnings": member.get("total_earnings", 0)
+            } for member in downline
+        ]
+        parsed["downline_count"] = len(downline)
+        
+        result.append(parsed)
+    
+    return result
+
+@api_router.get("/admin/member/{member_id}/network")
+async def get_member_network(member_id: str, current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view member networks")
+    
+    # Get the member
+    member = await db.mlm_users.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    # Get all downline members up to 5 levels
+    async def get_network_recursive(referral_code, level=1, max_level=5):
+        if level > max_level:
+            return []
+        
+        direct_members = await db.mlm_users.find({
+            "referred_by": referral_code
+        }).to_list(None)
+        
+        network = []
+        for direct_member in direct_members:
+            member_data = {
+                "id": direct_member["id"],
+                "full_name": direct_member["full_name"],
+                "mobile_number": direct_member["mobile_number"],
+                "referral_code": direct_member["referral_code"],
+                "registration_fee_paid": direct_member.get("registration_fee_paid", False),
+                "total_earnings": direct_member.get("total_earnings", 0),
+                "level": level,
+                "downline": await get_network_recursive(direct_member["referral_code"], level + 1, max_level)
+            }
+            network.append(member_data)
+        
+        return network
+    
+    network = await get_network_recursive(member["referral_code"])
+    
+    return {
+        "member": {
+            "id": member["id"],
+            "full_name": member["full_name"],
+            "mobile_number": member["mobile_number"],
+            "referral_code": member["referral_code"]
+        },
+        "network": network,
+        "total_network_size": await count_network_size(member["referral_code"])
+    }
+
+async def count_network_size(referral_code, level=1, max_level=5):
+    if level > max_level:
+        return 0
+    
+    direct_count = await db.mlm_users.count_documents({"referred_by": referral_code})
+    
+    # Get all direct members and count their networks recursively
+    direct_members = await db.mlm_users.find({"referred_by": referral_code}).to_list(None)
+    
+    total = direct_count
+    for member in direct_members:
+        total += await count_network_size(member["referral_code"], level + 1, max_level)
+    
+    return total
 
 @api_router.get("/admin/submissions")
 async def get_all_submissions(current_user: MLMUser = Depends(get_current_user)):
