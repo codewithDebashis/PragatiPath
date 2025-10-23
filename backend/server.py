@@ -1064,6 +1064,181 @@ async def admin_change_password(
     
     return {"message": "Password changed successfully"}
 
+@api_router.post("/admin/installment-payment/{user_id}")
+async def record_installment_payment(
+    user_id: str,
+    installment_data: InstallmentPayment,
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can record installment payments")
+    
+    # Get user
+    user = await db.mlm_users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    settings = await get_mlm_settings()
+    
+    # Add to installments
+    installments = user.get("registration_installments", [])
+    installments.append(installment_data.amount)
+    
+    total_paid = sum(installments)
+    can_work = len(installments) >= 1  # Can work after first installment
+    registration_complete = total_paid >= settings.registration_fee
+    
+    # Update user
+    update_data = {
+        "registration_installments": installments,
+        "total_installments_paid": total_paid,
+        "can_work": can_work,
+        "registration_fee_paid": registration_complete
+    }
+    
+    await db.mlm_users.update_one(
+        {"id": user_id},
+        {"$set": update_data}
+    )
+    
+    # Record transaction
+    transaction = Transaction(
+        user_id=user_id,
+        type="registration_fee",
+        amount=installment_data.amount,
+        description=f"Registration fee installment {installment_data.installment_number}/10"
+    )
+    await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
+    
+    return {
+        "message": f"Installment {installment_data.installment_number} recorded successfully",
+        "total_paid": total_paid,
+        "remaining": settings.registration_fee - total_paid,
+        "can_work": can_work,
+        "registration_complete": registration_complete
+    }
+
+@api_router.post("/daily-work-report")
+async def submit_daily_work_report(
+    date: str = Form(...),
+    class_name: str = Form(...),
+    subject: str = Form(...),
+    details: str = Form(...),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "member":
+        raise HTTPException(status_code=403, detail="Only members can submit daily work reports")
+    
+    # Check if user can work (paid at least one installment)
+    if not current_user.can_work:
+        raise HTTPException(status_code=400, detail="Please pay at least one registration installment to submit work")
+    
+    # Check if report already exists for this date
+    existing = await db.daily_work_reports.find_one({
+        "user_id": current_user.id,
+        "date": date
+    })
+    
+    if existing:
+        # Update existing report
+        await db.daily_work_reports.update_one(
+            {"user_id": current_user.id, "date": date},
+            {"$set": {
+                "class_name": class_name,
+                "subject": subject,
+                "details": details,
+                "submitted_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        return {"message": "Daily work report updated successfully"}
+    else:
+        # Create new report
+        report = DailyWorkReport(
+            user_id=current_user.id,
+            date=date,
+            class_name=class_name,
+            subject=subject,
+            details=details
+        )
+        
+        await db.daily_work_reports.insert_one(prepare_for_mongo(report.dict()))
+        return {"message": "Daily work report submitted successfully"}
+
+@api_router.get("/daily-work-reports")
+async def get_daily_work_reports(current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role == "admin":
+        # Admin sees all reports
+        reports = await db.daily_work_reports.find({}).sort("date", -1).to_list(None)
+        
+        result = []
+        for report in reports:
+            parsed = parse_from_mongo(report)
+            
+            # Get user info
+            user = await db.mlm_users.find_one({"id": parsed["user_id"]})
+            if user:
+                parsed["user_name"] = user["full_name"]
+                parsed["user_mobile"] = user["mobile_number"]
+            
+            result.append(parsed)
+        
+        return result
+    else:
+        # Member sees only their reports
+        reports = await db.daily_work_reports.find({
+            "user_id": current_user.id
+        }).sort("date", -1).to_list(None)
+        
+        return [parse_from_mongo(report) for report in reports]
+
+@api_router.get("/admin/daily-work-reports/export")
+async def export_daily_work_reports(current_user: MLMUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can export reports")
+    
+    try:
+        import pandas as pd
+        from io import BytesIO
+        
+        # Get all reports
+        reports = await db.daily_work_reports.find({}).sort("date", -1).to_list(None)
+        
+        export_data = []
+        for report in reports:
+            parsed = parse_from_mongo(report)
+            
+            # Get user info
+            user = await db.mlm_users.find_one({"id": parsed["user_id"]})
+            
+            export_data.append({
+                "Date": parsed["date"],
+                "Employee Name": user["full_name"] if user else "Unknown",
+                "Mobile Number": user["mobile_number"] if user else "Unknown",
+                "Class": parsed["class_name"],
+                "Subject": parsed["subject"],
+                "Work Details": parsed["details"],
+                "Submitted At": parsed["submitted_at"].strftime("%Y-%m-%d %H:%M:%S") if isinstance(parsed["submitted_at"], datetime) else parsed["submitted_at"]
+            })
+        
+        # Create Excel file
+        df = pd.DataFrame(export_data)
+        
+        # Create BytesIO buffer
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Daily Work Reports', index=False)
+        
+        buffer.seek(0)
+        
+        return Response(
+            content=buffer.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=daily_work_reports.xlsx"}
+        )
+        
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Excel export feature not available")
+
 # Initialize admin user and settings
 @api_router.post("/init")
 async def initialize_system():
