@@ -4,17 +4,21 @@ import json
 from datetime import datetime, timedelta
 import base64
 import io
+import os
 
-class TaskTrackerAPITester:
+class MLMPortalAPITester:
     def __init__(self, base_url="https://mlm-network-9.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.admin_token = None
-        self.employee_token = None
-        self.employee_id = None
+        self.member_token = None
+        self.member_id = None
+        self.member2_id = None
+        self.member3_id = None
         self.assignment_id = None
         self.tests_run = 0
         self.tests_passed = 0
         self.failed_tests = []
+        self.test_results = {}
 
     def run_test(self, name, method, endpoint, expected_status, data=None, files=None, headers=None):
         """Run a single API test"""
