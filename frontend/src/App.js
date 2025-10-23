@@ -1167,6 +1167,25 @@ function CreateWorkDialog({ onWorkCreated }) {
             </Popover>
           </div>
           <div>
+            <Label htmlFor="assigned_to">Assign To</Label>
+            <Select value={formData.assigned_to} onValueChange={(value) => setFormData({...formData, assigned_to: value})}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select assignment target" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_members" className="font-medium text-blue-600">
+                  📢 All Members (Broadcast)
+                </SelectItem>
+                <div className="border-t my-1"></div>
+                {members.filter(member => member.registration_fee_paid).map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.full_name} ({member.mobile_number})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label htmlFor="file">Attachment (optional)</Label>
             <Input
               id="file"
