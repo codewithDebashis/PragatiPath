@@ -316,7 +316,8 @@ class MLMPortalAPITester:
             "daily-work-report",
             200,
             data=report_data2,
-            token=self.member_token
+            token=self.member_token,
+            form_data=True
         )
         
         return success and success2 and success3
