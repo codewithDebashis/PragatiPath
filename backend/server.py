@@ -450,6 +450,14 @@ async def create_assignment(
     }
     
     if file:
+        # Validate file type for assignments
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', 
+                            '.ppt', '.pptx', '.xls', '.xlsx', '.mp4', '.avi', '.mov', '.wmv'}
+        
+        file_ext = Path(file.filename).suffix.lower() if file.filename else ''
+        if file_ext not in allowed_extensions:
+            raise HTTPException(status_code=400, detail=f"File type {file_ext} not supported. Allowed types: images, PDF, Office files, videos")
+        
         file_content = await file.read()
         assignment_data["attachment_name"] = file.filename
         assignment_data["attachment_data"] = base64.b64encode(file_content).decode('utf-8')
