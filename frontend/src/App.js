@@ -760,7 +760,7 @@ function AdminDashboard() {
             </div>
             <div className="grid gap-4">
               {users.map((member) => (
-                <AdminMemberCard key={member.id} member={member} onUpdate={fetchAdminData} />
+                <AdminMemberCard key={member.id} member={member} settings={settings} onUpdate={fetchAdminData} />
               ))}
             </div>
           </TabsContent>
