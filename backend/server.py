@@ -387,11 +387,16 @@ async def get_assignments(current_user: MLMUser = Depends(get_current_user)):
         for assignment in assignments:
             parsed = parse_from_mongo(assignment)
             
-            # Get assigned member details
-            member = await db.mlm_users.find_one({"id": parsed["assigned_to"]})
-            if member:
-                parsed["member_name"] = member["full_name"]
-                parsed["member_mobile"] = member["mobile_number"]
+            # Get assigned member details (only if assigned_to exists)
+            if "assigned_to" in parsed:
+                member = await db.mlm_users.find_one({"id": parsed["assigned_to"]})
+                if member:
+                    parsed["member_name"] = member["full_name"]
+                    parsed["member_mobile"] = member["mobile_number"]
+            else:
+                # Old assignment without assigned_to field
+                parsed["member_name"] = "Unassigned"
+                parsed["member_mobile"] = "N/A"
             
             # Check for submission
             submission = await db.mlm_submissions.find_one({
