@@ -163,15 +163,6 @@ function LoginRegister() {
     setLoading(false);
   };
 
-  const initializeSystem = async () => {
-    try {
-      const response = await axios.post(`${API}/init`);
-      toast.success(response.data.message);
-    } catch (error) {
-      toast.error('Failed to initialize system');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md backdrop-blur-lg bg-white/10 border-white/20">
