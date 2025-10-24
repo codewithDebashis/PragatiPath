@@ -425,13 +425,25 @@ function MemberDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="bg-gradient-to-r from-blue-500 to-indigo-600">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <CreditCard className="w-6 h-6 text-white" />
+                <div>
+                  <div className="text-2xl font-bold text-white">₹{stats.total_installments_paid || 0}</div>
+                  <div className="text-xs text-white/90">My Contribution</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
           <Card className="bg-gradient-to-r from-green-500 to-emerald-600">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
                 <DollarSign className="w-6 h-6 text-white" />
                 <div>
                   <div className="text-2xl font-bold text-white">₹{stats.current_balance || 0}</div>
-                  <div className="text-xs text-white/90">Current Balance</div>
+                  <div className="text-xs text-white/90">Account Balance</div>
                 </div>
               </div>
             </CardContent>
@@ -468,18 +480,6 @@ function MemberDashboard() {
                 <div>
                   <div className="text-xl font-bold text-purple-600">{stats.direct_referrals || 0}/5</div>
                   <div className="text-xs text-gray-600">Referrals</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-orange-600" />
-                <div>
-                  <div className="text-xl font-bold text-orange-600">{stats.pending_submissions || 0}</div>
-                  <div className="text-xs text-gray-600">Pending Work</div>
                 </div>
               </div>
             </CardContent>
