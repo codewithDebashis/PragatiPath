@@ -784,6 +784,7 @@ async def get_dashboard_stats(current_user: MLMUser = Depends(get_current_user))
             "current_balance": current_user.current_balance,
             "total_earnings": current_user.total_earnings,
             "total_withdrawn": current_user.total_withdrawn,
+            "total_installments_paid": current_user.total_installments_paid,
             "direct_referrals": len(current_user.direct_referrals),
             "can_withdraw": current_user.can_withdraw,
             "registration_fee_paid": current_user.registration_fee_paid,
