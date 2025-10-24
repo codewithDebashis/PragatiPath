@@ -728,7 +728,14 @@ function AdminDashboard() {
   const [submissions, setSubmissions] = useState([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState([]);
   const [settings, setSettings] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState({
+    stats: true,
+    users: true,
+    assignments: true,
+    submissions: true,
+    withdrawals: true,
+    settings: true
+  });
   const [activeTab, setActiveTab] = useState('users');
   const { user, logout } = useAuth();
 
@@ -737,29 +744,68 @@ function AdminDashboard() {
   }, []);
 
   const fetchAdminData = async () => {
-    setLoading(true);
+    // Fetch stats
     try {
-      const [statsRes, usersRes, assignmentsRes, submissionsRes, withdrawalsRes, settingsRes] = await Promise.all([
-        axios.get(`${API}/dashboard/stats`),
-        axios.get(`${API}/admin/users`),
-        axios.get(`${API}/assignments`),
-        axios.get(`${API}/admin/submissions`),
-        axios.get(`${API}/withdrawal/requests`),
-        axios.get(`${API}/admin/settings`)
-      ]);
-      
+      const statsRes = await axios.get(`${API}/dashboard/stats`);
       setStats(statsRes.data);
-      setUsers(usersRes.data);
-      setAssignments(assignmentsRes.data);
-      setSubmissions(submissionsRes.data);
-      setWithdrawalRequests(withdrawalsRes.data);
-      setSettings(settingsRes.data);
+      setLoading(prev => ({ ...prev, stats: false }));
     } catch (error) {
-      toast.error('Failed to fetch admin data');
-    } finally {
-      setLoading(false);
+      toast.error('Failed to fetch stats');
+      setLoading(prev => ({ ...prev, stats: false }));
+    }
+
+    // Fetch users
+    try {
+      const usersRes = await axios.get(`${API}/admin/users`);
+      setUsers(usersRes.data);
+      setLoading(prev => ({ ...prev, users: false }));
+    } catch (error) {
+      toast.error('Failed to fetch users');
+      setLoading(prev => ({ ...prev, users: false }));
+    }
+
+    // Fetch assignments
+    try {
+      const assignmentsRes = await axios.get(`${API}/assignments`);
+      setAssignments(assignmentsRes.data);
+      setLoading(prev => ({ ...prev, assignments: false }));
+    } catch (error) {
+      toast.error('Failed to fetch assignments');
+      setLoading(prev => ({ ...prev, assignments: false }));
+    }
+
+    // Fetch submissions
+    try {
+      const submissionsRes = await axios.get(`${API}/admin/submissions`);
+      setSubmissions(submissionsRes.data);
+      setLoading(prev => ({ ...prev, submissions: false }));
+    } catch (error) {
+      toast.error('Failed to fetch submissions');
+      setLoading(prev => ({ ...prev, submissions: false }));
+    }
+
+    // Fetch withdrawals
+    try {
+      const withdrawalsRes = await axios.get(`${API}/withdrawal/requests`);
+      setWithdrawalRequests(withdrawalsRes.data);
+      setLoading(prev => ({ ...prev, withdrawals: false }));
+    } catch (error) {
+      toast.error('Failed to fetch withdrawals');
+      setLoading(prev => ({ ...prev, withdrawals: false }));
+    }
+
+    // Fetch settings
+    try {
+      const settingsRes = await axios.get(`${API}/admin/settings`);
+      setSettings(settingsRes.data);
+      setLoading(prev => ({ ...prev, settings: false }));
+    } catch (error) {
+      toast.error('Failed to fetch settings');
+      setLoading(prev => ({ ...prev, settings: false }));
     }
   };
+
+  const isInitialLoading = loading.stats;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
