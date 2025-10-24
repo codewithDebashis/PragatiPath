@@ -1261,7 +1261,7 @@ function AdminMemberCard({ member, settings, onUpdate }) {
 
             <div className="text-sm text-gray-600">
               <p>Current total: ₹{totalPaid.toFixed(2)}</p>
-              <p>Remaining: ₹{(500 - totalPaid).toFixed(2)}</p>
+              <p>Remaining: ₹{(registrationFee - totalPaid).toFixed(2)}</p>
             </div>
 
             <div className="flex gap-2 pt-4">
