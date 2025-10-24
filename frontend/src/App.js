@@ -803,8 +803,8 @@ function AdminDashboard() {
         </div>
 
         {/* Admin Tabs - Basic implementation */}
-        <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-7 hidden md:grid">
             <TabsTrigger value="users">Members</TabsTrigger>
             <TabsTrigger value="work">Work Management</TabsTrigger>
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
