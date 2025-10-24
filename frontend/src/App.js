@@ -961,16 +961,30 @@ function AdminDashboard() {
 
           <TabsContent value="withdrawals" className="space-y-4">
             <h2 className="text-xl font-semibold">Withdrawal Requests</h2>
-            <div className="grid gap-4">
-              {withdrawalRequests.map((request) => (
-                <AdminWithdrawalCard key={request.id} request={request} onUpdate={fetchAdminData} />
-              ))}
-            </div>
+            {loading.withdrawals ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              </div>
+            ) : withdrawalRequests.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No withdrawal requests</p>
+            ) : (
+              <div className="grid gap-4">
+                {withdrawalRequests.map((request) => (
+                  <AdminWithdrawalCard key={request.id} request={request} onUpdate={fetchAdminData} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
             <h2 className="text-xl font-semibold">MLM Settings</h2>
-            <AdminSettingsCard settings={settings} onUpdate={fetchAdminData} />
+            {loading.settings ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              </div>
+            ) : (
+              <AdminSettingsCard settings={settings} onUpdate={fetchAdminData} />
+            )}
           </TabsContent>
 
           <TabsContent value="network" className="space-y-4">
