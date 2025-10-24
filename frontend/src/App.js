@@ -719,29 +719,38 @@ function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center">
-              <Network className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
+      {/* Fixed Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 md:px-6 py-4 shadow-sm">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center space-x-3 md:space-x-4">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center">
+              <Network className="w-4 h-4 md:w-6 md:h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Control Panel</h1>
-              <p className="text-sm text-gray-600">Life Line's MLM Portal</p>
+              <h1 className="text-lg md:text-2xl font-bold text-gray-900">Admin Control Panel</h1>
+              <p className="text-xs md:text-sm text-gray-600 hidden md:block">Life Line's MLM Portal</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">Welcome, {user?.full_name}</span>
-            <Button onClick={logout} variant="outline" size="sm">
+          <div className="flex items-center space-x-2 md:space-x-4">
+            <span className="text-xs md:text-sm text-gray-600">Welcome, {user?.full_name}</span>
+            <Button onClick={logout} variant="outline" size="sm" className="text-xs md:text-sm">
               Logout
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="p-6 space-y-6">
+      {/* Loading Spinner */}
+      {loading ? (
+        <div className="flex items-center justify-center min-h-screen pt-20">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-red-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading admin dashboard...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="pt-20 md:pt-24 px-4 md:px-6 pb-6 max-w-7xl mx-auto space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
