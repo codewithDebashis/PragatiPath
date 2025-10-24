@@ -18,7 +18,7 @@ import { Toaster } from './components/ui/sonner';
 import { Calendar } from './components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
 import { format } from 'date-fns';
-import { Download, Eye, Clock, DollarSign, Users, FileText, CheckCircle, XCircle, Network, TreePine, CreditCard } from 'lucide-react';
+import { Download, Eye, Clock, DollarSign, Users, FileText, CheckCircle, XCircle, Network, TreePine, CreditCard, Upload, Settings } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
