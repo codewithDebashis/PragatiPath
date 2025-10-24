@@ -565,11 +565,19 @@ function MemberDashboard() {
 
           <TabsContent value="work" className="space-y-4">
             <h2 className="text-xl font-semibold">Available Work</h2>
-            <div className="grid gap-4">
-              {assignments.map((assignment) => (
-                <MemberAssignmentCard key={assignment.id} assignment={assignment} onSubmit={fetchDashboardData} />
-              ))}
-            </div>
+            {loading.assignments ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : assignments.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No work assignments available</p>
+            ) : (
+              <div className="grid gap-4">
+                {assignments.map((assignment) => (
+                  <MemberAssignmentCard key={assignment.id} assignment={assignment} onSubmit={fetchDashboardData} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="dailywork" className="space-y-4">
@@ -582,11 +590,19 @@ function MemberDashboard() {
 
           <TabsContent value="transactions" className="space-y-4">
             <h2 className="text-xl font-semibold">Transaction History</h2>
-            <div className="space-y-2">
-              {transactions.map((transaction) => (
-                <TransactionCard key={transaction.id} transaction={transaction} />
-              ))}
-            </div>
+            {loading.transactions ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : transactions.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No transactions yet</p>
+            ) : (
+              <div className="space-y-2">
+                {transactions.map((transaction) => (
+                  <TransactionCard key={transaction.id} transaction={transaction} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="network" className="space-y-4">
