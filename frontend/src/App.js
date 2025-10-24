@@ -1324,15 +1324,15 @@ function CreateWorkDialog({ onWorkCreated }) {
       submitData.append('assigned_to', formData.assigned_to);
       if (file) submitData.append('file', file);
       
-      await axios.post(`${API}/assignments`, submitData);
+      const response = await axios.post(`${API}/assignments`, submitData);
       
-      toast.success(response.data.message);
+      toast.success(response.data.message || 'Work assignment created successfully');
       setOpen(false);
       setFormData({ title: '', description: '', amount: '', deadline: new Date(), assigned_to: '' });
       setFile(null);
       onWorkCreated();
     } catch (error) {
-      toast.error('Failed to create work assignment');
+      toast.error(error.response?.data?.detail || 'Failed to create work assignment');
     } finally {
       setLoading(false);
     }
