@@ -535,8 +535,8 @@ function MemberDashboard() {
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="work" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-5 hidden md:grid">
             <TabsTrigger value="work">Work Assignments</TabsTrigger>
             <TabsTrigger value="dailywork">Daily Work Report</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
