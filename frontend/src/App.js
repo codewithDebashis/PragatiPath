@@ -1083,12 +1083,14 @@ function ReferralLinkCard({ referralCode }) {
 }
 
 // Admin Component Stubs (basic implementations)
-function AdminMemberCard({ member, onUpdate }) {
+function AdminMemberCard({ member, settings, onUpdate }) {
   const [showNetwork, setShowNetwork] = useState(false);
   const [showInstallmentDialog, setShowInstallmentDialog] = useState(false);
   const [installmentNumber, setInstallmentNumber] = useState('');
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const registrationFee = settings?.registration_fee || 1000; // Default to 1000 if settings not loaded
 
   const markRegistrationPaid = async () => {
     try {
