@@ -325,7 +325,12 @@ function MemberDashboard() {
   const [referralTree, setReferralTree] = useState([]);
   const [showWithdrawalDialog, setShowWithdrawalDialog] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState({
+    stats: true,
+    assignments: true,
+    transactions: true,
+    tree: true
+  });
   const [activeTab, setActiveTab] = useState('work');
   const { user, logout } = useAuth();
 
@@ -334,25 +339,48 @@ function MemberDashboard() {
   }, []);
 
   const fetchDashboardData = async () => {
-    setLoading(true);
+    // Fetch stats
     try {
-      const [statsRes, assignmentsRes, transactionsRes, treeRes] = await Promise.all([
-        axios.get(`${API}/dashboard/stats`),
-        axios.get(`${API}/assignments`),
-        axios.get(`${API}/transactions`),
-        axios.get(`${API}/referral/tree`)
-      ]);
-      
+      const statsRes = await axios.get(`${API}/dashboard/stats`);
       setStats(statsRes.data);
-      setAssignments(assignmentsRes.data);
-      setTransactions(transactionsRes.data);
-      setReferralTree(treeRes.data);
+      setLoading(prev => ({ ...prev, stats: false }));
     } catch (error) {
-      toast.error('Failed to fetch dashboard data');
-    } finally {
-      setLoading(false);
+      toast.error('Failed to fetch stats');
+      setLoading(prev => ({ ...prev, stats: false }));
+    }
+
+    // Fetch assignments
+    try {
+      const assignmentsRes = await axios.get(`${API}/assignments`);
+      setAssignments(assignmentsRes.data);
+      setLoading(prev => ({ ...prev, assignments: false }));
+    } catch (error) {
+      toast.error('Failed to fetch assignments');
+      setLoading(prev => ({ ...prev, assignments: false }));
+    }
+
+    // Fetch transactions
+    try {
+      const transactionsRes = await axios.get(`${API}/transactions`);
+      setTransactions(transactionsRes.data);
+      setLoading(prev => ({ ...prev, transactions: false }));
+    } catch (error) {
+      toast.error('Failed to fetch transactions');
+      setLoading(prev => ({ ...prev, transactions: false }));
+    }
+
+    // Fetch tree
+    try {
+      const treeRes = await axios.get(`${API}/referral/tree`);
+      setReferralTree(treeRes.data);
+      setLoading(prev => ({ ...prev, tree: false }));
+    } catch (error) {
+      toast.error('Failed to fetch referral tree');
+      setLoading(prev => ({ ...prev, tree: false }));
     }
   };
+
+  const isInitialLoading = loading.stats;
 
   const handleWithdrawalRequest = async () => {
     try {
