@@ -907,11 +907,19 @@ function AdminDashboard() {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Member Management</h2>
             </div>
-            <div className="grid gap-4">
-              {users.map((member) => (
-                <AdminMemberCard key={member.id} member={member} settings={settings} onUpdate={fetchAdminData} />
-              ))}
-            </div>
+            {loading.users ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              </div>
+            ) : users.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No members yet</p>
+            ) : (
+              <div className="grid gap-4">
+                {users.map((member) => (
+                  <AdminMemberCard key={member.id} member={member} settings={settings} onUpdate={fetchAdminData} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="work" className="space-y-4">
@@ -919,20 +927,36 @@ function AdminDashboard() {
               <h2 className="text-xl font-semibold">Work Assignment Management</h2>
               <CreateWorkDialog onWorkCreated={fetchAdminData} />
             </div>
-            <div className="grid gap-4">
-              {assignments.map((assignment) => (
-                <AdminAssignmentCard key={assignment.id} assignment={assignment} />
-              ))}
-            </div>
+            {loading.assignments ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              </div>
+            ) : assignments.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No assignments created yet</p>
+            ) : (
+              <div className="grid gap-4">
+                {assignments.map((assignment) => (
+                  <AdminAssignmentCard key={assignment.id} assignment={assignment} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="submissions" className="space-y-4">
             <h2 className="text-xl font-semibold">Work Submissions Review</h2>
-            <div className="grid gap-4">
-              {submissions.filter(s => s.status === 'pending').map((submission) => (
-                <AdminSubmissionCard key={submission.id} submission={submission} onUpdate={fetchAdminData} />
-              ))}
-            </div>
+            {loading.submissions ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              </div>
+            ) : submissions.filter(s => s.status === 'pending').length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No pending submissions</p>
+            ) : (
+              <div className="grid gap-4">
+                {submissions.filter(s => s.status === 'pending').map((submission) => (
+                  <AdminSubmissionCard key={submission.id} submission={submission} onUpdate={fetchAdminData} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="withdrawals" className="space-y-4">
