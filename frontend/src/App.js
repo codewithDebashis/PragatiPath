@@ -607,11 +607,19 @@ function MemberDashboard() {
 
           <TabsContent value="network" className="space-y-4">
             <h2 className="text-xl font-semibold">My Referral Network</h2>
-            <div className="space-y-4">
-              {referralTree.map((tree) => (
-                <ReferralTreeCard key={tree.id} tree={tree} />
-              ))}
-            </div>
+            {loading.tree ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : referralTree.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No referrals yet. Start building your network!</p>
+            ) : (
+              <div className="space-y-4">
+                {referralTree.map((tree) => (
+                  <ReferralTreeCard key={tree.id} tree={tree} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="earnings" className="space-y-4">
