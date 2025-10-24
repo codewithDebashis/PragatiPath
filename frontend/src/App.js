@@ -320,16 +320,6 @@ function LoginRegister() {
               </Button>
             </form>
           )}
-          
-          <div className="text-center">
-            <Button
-              variant="outline"
-              onClick={initializeSystem}
-              className="text-sm border-white/20 text-white hover:bg-white/10"
-            >
-              Initialize System
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -344,6 +334,8 @@ function MemberDashboard() {
   const [referralTree, setReferralTree] = useState([]);
   const [showWithdrawalDialog, setShowWithdrawalDialog] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('work');
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -351,6 +343,7 @@ function MemberDashboard() {
   }, []);
 
   const fetchDashboardData = async () => {
+    setLoading(true);
     try {
       const [statsRes, assignmentsRes, transactionsRes, treeRes] = await Promise.all([
         axios.get(`${API}/dashboard/stats`),
@@ -365,6 +358,8 @@ function MemberDashboard() {
       setReferralTree(treeRes.data);
     } catch (error) {
       toast.error('Failed to fetch dashboard data');
+    } finally {
+      setLoading(false);
     }
   };
 
