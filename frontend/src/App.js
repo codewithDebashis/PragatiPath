@@ -685,6 +685,8 @@ function AdminDashboard() {
   const [submissions, setSubmissions] = useState([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState([]);
   const [settings, setSettings] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('users');
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -692,6 +694,7 @@ function AdminDashboard() {
   }, []);
 
   const fetchAdminData = async () => {
+    setLoading(true);
     try {
       const [statsRes, usersRes, assignmentsRes, submissionsRes, withdrawalsRes, settingsRes] = await Promise.all([
         axios.get(`${API}/dashboard/stats`),
@@ -710,6 +713,8 @@ function AdminDashboard() {
       setSettings(settingsRes.data);
     } catch (error) {
       toast.error('Failed to fetch admin data');
+    } finally {
+      setLoading(false);
     }
   };
 
