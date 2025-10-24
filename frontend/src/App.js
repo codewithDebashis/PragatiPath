@@ -630,7 +630,49 @@ function MemberDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+        
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+          <div className="grid grid-cols-5 gap-1 p-2">
+            <button
+              onClick={() => setActiveTab('work')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'work' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <FileText className="w-5 h-5 mb-1" />
+              <span className="text-xs">Work</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('dailywork')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'dailywork' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <FileText className="w-5 h-5 mb-1" />
+              <span className="text-xs">Daily</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('transactions')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <DollarSign className="w-5 h-5 mb-1" />
+              <span className="text-xs">Money</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('network')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'network' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <Users className="w-5 h-5 mb-1" />
+              <span className="text-xs">Network</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('earnings')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'earnings' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <DollarSign className="w-5 h-5 mb-1" />
+              <span className="text-xs">Earnings</span>
+            </button>
+          </div>
+        </div>
       </div>
+      )}
     </div>
   );
 }
