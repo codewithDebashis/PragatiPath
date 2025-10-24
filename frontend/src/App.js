@@ -893,7 +893,63 @@ function AdminDashboard() {
             <DailyWorkReports />
           </TabsContent>
         </Tabs>
+        
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+          <div className="grid grid-cols-7 gap-1 p-2">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'users' ? 'bg-red-50 text-red-600' : 'text-gray-600'}`}
+            >
+              <Users className="w-5 h-5 mb-1" />
+              <span className="text-xs">Users</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('work')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'work' ? 'bg-red-50 text-red-600' : 'text-gray-600'}`}
+            >
+              <FileText className="w-5 h-5 mb-1" />
+              <span className="text-xs">Work</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('submissions')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'submissions' ? 'bg-red-50 text-red-600' : 'text-gray-600'}`}
+            >
+              <Upload className="w-5 h-5 mb-1" />
+              <span className="text-xs">Submit</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('withdrawals')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'withdrawals' ? 'bg-red-50 text-red-600' : 'text-gray-600'}`}
+            >
+              <DollarSign className="w-5 h-5 mb-1" />
+              <span className="text-xs">Money</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('dailyreports')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'dailyreports' ? 'bg-red-50 text-red-600' : 'text-gray-600'}`}
+            >
+              <FileText className="w-5 h-5 mb-1" />
+              <span className="text-xs">Daily</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'settings' ? 'bg-red-50 text-red-600' : 'text-gray-600'}`}
+            >
+              <Settings className="w-5 h-5 mb-1" />
+              <span className="text-xs">Config</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('network')}
+              className={`flex flex-col items-center justify-center py-2 rounded-lg ${activeTab === 'network' ? 'bg-red-50 text-red-600' : 'text-gray-600'}`}
+            >
+              <Network className="w-5 h-5 mb-1" />
+              <span className="text-xs">Tree</span>
+            </button>
+          </div>
+        </div>
       </div>
+      )}
     </div>
   );
 }
