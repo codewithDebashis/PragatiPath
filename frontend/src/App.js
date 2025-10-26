@@ -1512,6 +1512,7 @@ function AdminMemberCard({ member, settings, onUpdate }) {
   const [showNetwork, setShowNetwork] = useState(false);
   const [showInstallmentDialog, setShowInstallmentDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
   const [installmentNumber, setInstallmentNumber] = useState('');
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
