@@ -2169,13 +2169,21 @@ function AdminSettingsCard({ settings, onUpdate }) {
 // Daily Work Report Dialog Component
 function DailyWorkReportDialog({ onReportSubmitted }) {
   const [open, setOpen] = useState(false);
+  const [reportFormat, setReportFormat] = useState('tabular'); // 'tabular' or 'paragraph'
+  
+  // Tabular format fields
   const [date, setDate] = useState(new Date());
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
   const [details, setDetails] = useState('');
+  
+  // Paragraph format fields
+  const [paragraphName, setParagraphName] = useState('');
+  const [paragraphUpdate, setParagraphUpdate] = useState('');
+  
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmitTabular = async () => {
     if (!className || !subject || !details) {
       toast.error('Please fill in all fields');
       return;
@@ -2206,6 +2214,35 @@ function DailyWorkReportDialog({ onReportSubmitted }) {
     }
   };
 
+  const handleSubmitParagraph = async () => {
+    if (!paragraphName || !paragraphUpdate) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const formData = new URLSearchParams();
+      formData.append('date', format(date, 'yyyy-MM-dd'));
+      formData.append('name', paragraphName);
+      formData.append('update', paragraphUpdate);
+
+      await axios.post(`${API}/daily-work-report-paragraph`, formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+
+      toast.success('Daily work report submitted successfully');
+      setOpen(false);
+      setParagraphName('');
+      setParagraphUpdate('');
+      if (onReportSubmitted) onReportSubmitted();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to submit report');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -2214,12 +2251,42 @@ function DailyWorkReportDialog({ onReportSubmitted }) {
           Submit Daily Report
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Submit Daily Work Report</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
+        <div className="py-4">
+          {/* Format Selection */}
+          <div className="mb-6">
+            <Label className="mb-2 block">Select Report Format:</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setReportFormat('tabular')}
+                className={`p-4 border-2 rounded-lg transition-all ${
+                  reportFormat === 'tabular' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium mb-1">Tabular Format</div>
+                <div className="text-xs text-gray-600">Class, Subject & Details</div>
+              </button>
+              <button
+                onClick={() => setReportFormat('paragraph')}
+                className={`p-4 border-2 rounded-lg transition-all ${
+                  reportFormat === 'paragraph' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium mb-1">Paragraph Format</div>
+                <div className="text-xs text-gray-600">Name & Today's Update</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Date Picker - Common for both formats */}
+          <div className="space-y-2 mb-4">
             <Label htmlFor="date">Date</Label>
             <Popover>
               <PopoverTrigger asChild>
@@ -2241,46 +2308,90 @@ function DailyWorkReportDialog({ onReportSubmitted }) {
               </PopoverContent>
             </Popover>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="className">Class</Label>
-            <Input
-              id="className"
-              value={className}
-              onChange={(e) => setClassName(e.target.value)}
-              placeholder="e.g., Grade 10"
-            />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="subject">Subject</Label>
-            <Input
-              id="subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g., Mathematics"
-            />
-          </div>
+          {/* Tabular Format Fields */}
+          {reportFormat === 'tabular' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="className">Class</Label>
+                <Input
+                  id="className"
+                  value={className}
+                  onChange={(e) => setClassName(e.target.value)}
+                  placeholder="e.g., Grade 10"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="details">Work Details</Label>
-            <Textarea
-              id="details"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              placeholder="Describe the work completed today..."
-              rows={4}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="subject">Subject</Label>
+                <Input
+                  id="subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g., Mathematics"
+                />
+              </div>
 
-          <div className="flex gap-2 pt-4">
-            <Button variant="outline" onClick={() => setOpen(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={submitting} className="flex-1">
-              {submitting ? 'Submitting...' : 'Submit Report'}
-            </Button>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="details">Work Details</Label>
+                <Textarea
+                  id="details"
+                  value={details}
+                  onChange={(e) => setDetails(e.target.value)}
+                  placeholder="Describe the work completed today..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitTabular} disabled={submitting} className="flex-1">
+                  {submitting ? 'Submitting...' : 'Submit Report'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Paragraph Format Fields */}
+          {reportFormat === 'paragraph' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="paragraphName">Your Name</Label>
+                <Input
+                  id="paragraphName"
+                  value={paragraphName}
+                  onChange={(e) => setParagraphName(e.target.value)}
+                  placeholder="Enter your name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paragraphUpdate">Today's Update</Label>
+                <Textarea
+                  id="paragraphUpdate"
+                  value={paragraphUpdate}
+                  onChange={(e) => setParagraphUpdate(e.target.value)}
+                  placeholder="Write your daily work update in paragraph format..."
+                  rows={8}
+                  className="resize-none"
+                />
+                <p className="text-xs text-gray-500">
+                  Tip: Include what you worked on, tasks completed, and any important notes
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitParagraph} disabled={submitting} className="flex-1">
+                  {submitting ? 'Submitting...' : 'Submit Report'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
