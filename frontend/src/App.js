@@ -553,6 +553,42 @@ function MemberDashboard() {
           </Card>
         </div>
 
+        {/* Admin UPI Payment Info Card */}
+        {stats.admin_upi && (
+          <Card className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="w-5 h-5" />
+                    <h3 className="font-semibold">Payment Information</h3>
+                  </div>
+                  <p className="text-sm text-white/90 mb-3">
+                    Use this UPI address to deposit your registration fee
+                  </p>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-white/80 mb-1">Admin UPI Address</p>
+                      <p className="font-mono font-bold text-lg">{stats.admin_upi}</p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        navigator.clipboard.writeText(stats.admin_upi);
+                        toast.success('UPI address copied!');
+                      }}
+                      size="sm"
+                      variant="secondary"
+                      className="ml-3"
+                    >
+                      Copy UPI
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 hidden md:grid">
