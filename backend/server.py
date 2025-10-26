@@ -142,6 +142,7 @@ class MLMSettings(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     registration_fee: float = 500.0
     minimum_withdrawal: float = 100.0
+    admin_upi: str = "admin@upi"  # Admin UPI for registration payments
     commission_l1: float = 5.0  # percentage
     commission_l2: float = 3.0
     commission_l3: float = 1.0
