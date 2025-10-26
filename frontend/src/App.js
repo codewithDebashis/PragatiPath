@@ -1259,30 +1259,130 @@ function TransactionCard({ transaction }) {
 }
 
 function ReferralTreeCard({ tree }) {
-  const renderTree = (node, level = 0) => {
+  const [expandedNodes, setExpandedNodes] = useState({});
+
+  const toggleNode = (nodeId) => {
+    setExpandedNodes(prev => ({
+      ...prev,
+      [nodeId]: !prev[nodeId]
+    }));
+  };
+
+  const getLevelColor = (level) => {
+    const colors = {
+      1: 'bg-blue-500',
+      2: 'bg-green-500',
+      3: 'bg-yellow-500',
+      4: 'bg-orange-500',
+      5: 'bg-red-500'
+    };
+    return colors[level] || 'bg-gray-500';
+  };
+
+  const getLevelBorder = (level) => {
+    const colors = {
+      1: 'border-blue-200',
+      2: 'border-green-200',
+      3: 'border-yellow-200',
+      4: 'border-orange-200',
+      5: 'border-red-200'
+    };
+    return colors[level] || 'border-gray-200';
+  };
+
+  const renderTree = (node, level = 0, isLast = true) => {
+    const hasChildren = node.children && node.children.length > 0;
+    const isExpanded = expandedNodes[node.id] !== false; // Default to expanded
+
     return (
-      <div key={node.id} className={`ml-${level * 4}`}>
-        <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded mb-2">
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-            L{node.level}
+      <div key={node.id} className="relative">
+        {/* Vertical line connector */}
+        {level > 0 && (
+          <div className="absolute left-0 top-0 w-8 h-8 border-l-2 border-b-2 border-gray-300 rounded-bl-lg" 
+               style={{ marginLeft: `${(level - 1) * 2}rem` }} />
+        )}
+        
+        {/* Node card */}
+        <div 
+          className={`mb-3 ${level > 0 ? 'ml-8' : ''}`}
+          style={{ marginLeft: level > 0 ? `${level * 2}rem` : '0' }}
+        >
+          <div className={`border-2 ${getLevelBorder(node.level)} rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-shadow`}>
+            <div className="flex items-center gap-3">
+              {/* Level badge */}
+              <div className={`w-10 h-10 ${getLevelColor(node.level)} rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+                L{node.level}
+              </div>
+              
+              {/* Member info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-semibold text-gray-900 truncate">{node.name}</p>
+                  <Badge variant="outline" className="text-xs">
+                    {node.mobile}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    {node.children?.length || 0} referrals
+                  </span>
+                  <span className="flex items-center gap-1 text-green-600 font-medium">
+                    <DollarSign className="w-3 h-3" />
+                    ₹{node.earnings || 0}
+                  </span>
+                </div>
+              </div>
+
+              {/* Expand/Collapse button */}
+              {hasChildren && (
+                <button
+                  onClick={() => toggleNode(node.id)}
+                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="w-5 h-5 text-gray-600" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  )}
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="font-medium">{node.name}</p>
-            <p className="text-xs text-gray-600">{node.mobile}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-medium text-green-600">₹{node.earnings}</p>
-          </div>
+
+          {/* Children nodes */}
+          {hasChildren && isExpanded && (
+            <div className="mt-2 relative">
+              {node.children.map((child, index) => 
+                renderTree(child, level + 1, index === node.children.length - 1)
+              )}
+            </div>
+          )}
         </div>
-        {node.children && node.children.map(child => renderTree(child, level + 1))}
       </div>
     );
   };
 
   return (
     <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Network className="w-5 h-5" />
+          Referral Network Tree
+        </CardTitle>
+      </CardHeader>
       <CardContent className="p-4">
-        {renderTree(tree)}
+        {tree ? (
+          <div className="space-y-2">
+            {renderTree(tree)}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <Network className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p>No referral network yet</p>
+            <p className="text-sm mt-1">Share your referral link to start building your network</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
