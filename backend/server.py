@@ -1204,6 +1204,51 @@ async def submit_daily_work_report(
         await db.daily_work_reports.insert_one(prepare_for_mongo(report.dict()))
         return {"message": "Daily work report submitted successfully"}
 
+@api_router.post("/daily-work-report-paragraph")
+async def submit_daily_work_report_paragraph(
+    date: str = Form(...),
+    name: str = Form(...),
+    update: str = Form(...),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "member":
+        raise HTTPException(status_code=403, detail="Only members can submit daily work reports")
+    
+    # Check if user can work (paid at least one installment)
+    if not current_user.can_work:
+        raise HTTPException(status_code=400, detail="Please pay at least one registration installment to submit work")
+    
+    # Store in same collection with format indicator
+    report = DailyWorkReport(
+        user_id=current_user.id,
+        date=date,
+        class_name=name,  # Repurpose class_name for name
+        subject="Paragraph Format",  # Indicator
+        details=update
+    )
+    
+    # Check if report already exists for this date
+    existing = await db.daily_work_reports.find_one({
+        "user_id": current_user.id,
+        "date": date,
+        "subject": "Paragraph Format"
+    })
+    
+    if existing:
+        # Update existing report
+        await db.daily_work_reports.update_one(
+            {"user_id": current_user.id, "date": date, "subject": "Paragraph Format"},
+            {"$set": {
+                "class_name": name,
+                "details": update,
+                "submitted_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        return {"message": "Daily work report updated successfully"}
+    else:
+        await db.daily_work_reports.insert_one(prepare_for_mongo(report.dict()))
+        return {"message": "Daily work report submitted successfully"}
+
 @api_router.get("/daily-work-reports")
 async def get_daily_work_reports(current_user: MLMUser = Depends(get_current_user)):
     if current_user.role == "admin":
