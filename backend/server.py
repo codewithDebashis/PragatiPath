@@ -1261,6 +1261,54 @@ async def export_daily_work_reports(current_user: MLMUser = Depends(get_current_
     except ImportError:
         raise HTTPException(status_code=500, detail="Excel export feature not available")
 
+# Remove member endpoint
+@api_router.delete("/admin/remove-member/{user_id}")
+async def remove_member(
+    user_id: str,
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can remove members")
+    
+    # Find the member to remove
+    member = await db.mlm_users.find_one({"id": user_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    if member["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Cannot remove admin user")
+    
+    # Get member's referrer to update their downline count
+    if member.get("referred_by"):
+        referrer = await db.mlm_users.find_one({"id": member["referred_by"]})
+        if referrer:
+            # Remove this member from referrer's direct_referrals list
+            updated_referrals = [ref for ref in referrer.get("direct_referrals", []) if ref != user_id]
+            await db.mlm_users.update_one(
+                {"id": member["referred_by"]},
+                {"$set": {"direct_referrals": updated_referrals}}
+            )
+    
+    # Delete member's assignments
+    await db.mlm_assignments.delete_many({"assigned_to": user_id})
+    
+    # Delete member's submissions
+    await db.mlm_submissions.delete_many({"user_id": user_id})
+    
+    # Delete member's transactions
+    await db.transactions.delete_many({"user_id": user_id})
+    
+    # Delete member's daily work reports
+    await db.daily_work_reports.delete_many({"user_id": user_id})
+    
+    # Delete member's withdrawal requests
+    await db.withdrawal_requests.delete_many({"user_id": user_id})
+    
+    # Finally, delete the member
+    await db.mlm_users.delete_one({"id": user_id})
+    
+    return {"message": "Member removed successfully", "removed_user_id": user_id}
+
 # Initialize admin user and settings
 @api_router.post("/init")
 async def initialize_system():
