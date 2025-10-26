@@ -1040,6 +1040,7 @@ async def download_assignment_attachment(
 async def update_settings(
     registration_fee: Optional[float] = Form(None),
     minimum_withdrawal: Optional[float] = Form(None),
+    admin_upi: Optional[str] = Form(None),
     commission_l1: Optional[float] = Form(None),
     commission_l2: Optional[float] = Form(None),
     commission_l3: Optional[float] = Form(None),
@@ -1056,6 +1057,8 @@ async def update_settings(
         update_data["registration_fee"] = registration_fee
     if minimum_withdrawal is not None:
         update_data["minimum_withdrawal"] = minimum_withdrawal
+    if admin_upi is not None:
+        update_data["admin_upi"] = admin_upi
     if commission_l1 is not None:
         update_data["commission_l1"] = commission_l1
     if commission_l2 is not None:
