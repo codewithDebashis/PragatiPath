@@ -781,6 +781,10 @@ async def get_dashboard_stats(current_user: MLMUser = Depends(get_current_user))
             "status": "pending"
         })
         
+        # Get admin UPI for payment info
+        settings = await db.mlm_settings.find_one({})
+        admin_upi = settings.get("admin_upi", "admin@upi") if settings else "admin@upi"
+        
         return {
             "current_balance": current_user.current_balance,
             "total_earnings": current_user.total_earnings,
@@ -791,7 +795,8 @@ async def get_dashboard_stats(current_user: MLMUser = Depends(get_current_user))
             "registration_fee_paid": current_user.registration_fee_paid,
             "pending_submissions": pending_count,
             "daily_earnings": daily_earnings,
-            "referral_code": current_user.referral_code
+            "referral_code": current_user.referral_code,
+            "admin_upi": admin_upi
         }
 
 @api_router.get("/transactions")
