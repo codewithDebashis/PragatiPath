@@ -1415,6 +1415,61 @@ function ReferralTreeCard({ tree }) {
   );
 }
 
+// Network Tree View Component (for admin to see individual member's network)
+function NetworkTreeView({ userId, userName }) {
+  const [tree, setTree] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (expanded) {
+      fetchTree();
+    }
+  }, [expanded, userId]);
+
+  const fetchTree = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/referral/tree`, {
+        params: { user_id: userId }
+      });
+      setTree(response.data[0]); // Get first tree (root node)
+    } catch (error) {
+      console.error('Failed to fetch tree:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setExpanded(!expanded)}
+        className="mb-3"
+      >
+        <TreePine className="w-4 h-4 mr-2" />
+        {expanded ? 'Hide' : 'Show'} Network Tree
+      </Button>
+
+      {expanded && (
+        <div className="pl-4 border-l-2 border-gray-200">
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          ) : tree ? (
+            <ReferralTreeCard tree={tree} />
+          ) : (
+            <p className="text-sm text-gray-500 py-4">No referrals yet for {userName}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Referral Link Card Component
 function ReferralLinkCard({ referralCode }) {
   const [copied, setCopied] = useState(false);
