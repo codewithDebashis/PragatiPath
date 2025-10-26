@@ -1329,9 +1329,11 @@ function ReferralLinkCard({ referralCode }) {
 function AdminMemberCard({ member, settings, onUpdate }) {
   const [showNetwork, setShowNetwork] = useState(false);
   const [showInstallmentDialog, setShowInstallmentDialog] = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [installmentNumber, setInstallmentNumber] = useState('');
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const registrationFee = settings?.registration_fee || 1000; // Default to 1000 if settings not loaded
 
@@ -1342,6 +1344,20 @@ function AdminMemberCard({ member, settings, onUpdate }) {
       onUpdate();
     } catch (error) {
       toast.error('Failed to update registration status');
+    }
+  };
+
+  const removeMember = async () => {
+    setRemoving(true);
+    try {
+      await axios.delete(`${API}/admin/remove-member/${member.id}`);
+      toast.success('Member removed successfully');
+      setShowRemoveDialog(false);
+      onUpdate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to remove member');
+    } finally {
+      setRemoving(false);
     }
   };
 
