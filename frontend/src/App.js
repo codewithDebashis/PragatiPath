@@ -988,8 +988,35 @@ function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="network" className="space-y-4">
-            <h2 className="text-xl font-semibold">Network Overview</h2>
-            <p className="text-gray-600">Network visualization will be implemented here</p>
+            <h2 className="text-xl font-semibold">Network Overview - All Members</h2>
+            {loading.users ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    📊 Complete network visualization showing all members and their referral trees across 5 levels.
+                  </p>
+                </div>
+                {users.filter(u => u.role !== 'admin').map((member) => (
+                  <div key={member.id} className="border rounded-lg p-4 bg-white">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b">
+                      <div>
+                        <h3 className="font-semibold text-lg">{member.full_name}</h3>
+                        <p className="text-sm text-gray-600">{member.mobile_number} • Code: {member.referral_code}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Total Earnings</p>
+                        <p className="text-xl font-bold text-green-600">₹{member.total_earnings || 0}</p>
+                      </div>
+                    </div>
+                    <NetworkTreeView userId={member.id} userName={member.full_name} />
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="dailyreports" className="space-y-4">
