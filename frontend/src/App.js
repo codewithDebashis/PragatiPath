@@ -1483,8 +1483,75 @@ function AdminMemberCard({ member, settings, onUpdate }) {
               )}
             </div>
           )}
+          
+          {/* Remove Member Section */}
+          <div className="border-t pt-3">
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setShowRemoveDialog(true)}
+              className="w-full"
+            >
+              <XCircle className="w-4 h-4 mr-1" />
+              Remove Member
+            </Button>
+          </div>
         </div>
       </CardContent>
+
+      {/* Remove Member Confirmation Dialog */}
+      <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">⚠️ Remove Member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800 font-medium mb-2">Warning: This action cannot be undone!</p>
+              <p className="text-sm text-red-700">
+                Removing this member will permanently delete:
+              </p>
+              <ul className="text-sm text-red-700 list-disc list-inside mt-2 space-y-1">
+                <li>Member account and profile</li>
+                <li>All work assignments and submissions</li>
+                <li>All transactions and payment history</li>
+                <li>Daily work reports</li>
+                <li>Withdrawal requests</li>
+                <li>Member will be removed from referrer's downline</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Member Details:</p>
+              <div className="bg-gray-50 p-3 rounded">
+                <p className="text-sm"><strong>Name:</strong> {member.full_name}</p>
+                <p className="text-sm"><strong>Mobile:</strong> {member.mobile_number}</p>
+                <p className="text-sm"><strong>Referral Code:</strong> {member.referral_code}</p>
+                <p className="text-sm"><strong>Balance:</strong> ₹{member.current_balance || 0}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowRemoveDialog(false)}
+                className="flex-1"
+                disabled={removing}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={removeMember} 
+                disabled={removing}
+                className="flex-1"
+              >
+                {removing ? 'Removing...' : 'Yes, Remove Member'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Installment Payment Dialog */}
       <Dialog open={showInstallmentDialog} onOpenChange={setShowInstallmentDialog}>
