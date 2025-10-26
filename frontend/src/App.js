@@ -1667,8 +1667,17 @@ function AdminMemberCard({ member, settings, onUpdate }) {
             </div>
           )}
           
-          {/* Remove Member Section */}
-          <div className="border-t pt-3">
+          {/* Member Actions */}
+          <div className="border-t pt-3 grid grid-cols-2 gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowCredentialsDialog(true)}
+              className="w-full"
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              View Credentials
+            </Button>
             <Button 
               variant="destructive" 
               size="sm"
@@ -1681,6 +1690,81 @@ function AdminMemberCard({ member, settings, onUpdate }) {
           </div>
         </div>
       </CardContent>
+
+      {/* View Credentials Dialog */}
+      <Dialog open={showCredentialsDialog} onOpenChange={setShowCredentialsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Member Login Credentials</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800 mb-2">
+                🔐 Share these credentials with the member if they forget
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-sm text-gray-600">Member Name</Label>
+                <div className="p-3 bg-gray-50 rounded border">
+                  <p className="font-medium">{member.full_name}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm text-gray-600">User ID / Mobile Number</Label>
+                <div className="p-3 bg-gray-50 rounded border flex justify-between items-center">
+                  <p className="font-mono font-medium">{member.mobile_number}</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(member.mobile_number);
+                      toast.success('Mobile number copied!');
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm text-gray-600">Password</Label>
+                <div className="p-3 bg-gray-50 rounded border flex justify-between items-center">
+                  <p className="font-mono font-medium">{member.mobile_number}</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(member.mobile_number);
+                      toast.success('Password copied!');
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Note: Default password is same as mobile number
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm text-gray-600">Referral Code</Label>
+                <div className="p-3 bg-gray-50 rounded border">
+                  <p className="font-mono font-medium">{member.referral_code}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button onClick={() => setShowCredentialsDialog(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Remove Member Confirmation Dialog */}
       <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
