@@ -799,7 +799,10 @@ async def get_transactions(current_user: MLMUser = Depends(get_current_user)):
     return [parse_from_mongo(txn) for txn in transactions]
 
 @api_router.get("/referral/tree")
-async def get_referral_tree(current_user: MLMUser = Depends(get_current_user)):
+async def get_referral_tree(
+    current_user: MLMUser = Depends(get_current_user),
+    user_id: str = None
+):
     """Get referral network tree data"""
     
     async def build_tree_node(user_data, level=1, max_level=5):
@@ -813,7 +816,7 @@ async def get_referral_tree(current_user: MLMUser = Depends(get_current_user)):
         }
         
         if level < max_level:
-            # Get direct referrals
+            # Get direct referrals by referral code
             referrals = await db.mlm_users.find({
                 "referred_by": user_data["referral_code"]
             }).to_list(None)
@@ -824,14 +827,29 @@ async def get_referral_tree(current_user: MLMUser = Depends(get_current_user)):
         
         return node
     
-    # Start from current user or admin can view any user's tree
+    # If user_id provided (admin viewing specific user's tree)
+    if user_id and current_user.role == "admin":
+        user_data = await db.mlm_users.find_one({"id": user_id})
+        if user_data:
+            tree = await build_tree_node(user_data)
+            return [tree]
+        return []
+    
+    # Admin viewing all root-level trees
     if current_user.role == "admin":
-        # Admin can see full network - start from root users (no referrer)
-        root_users = await db.mlm_users.find({"referred_by": None}).to_list(None)
+        # Get all users who have no referrer (empty string or None)
+        root_users = await db.mlm_users.find({
+            "$or": [
+                {"referred_by": {"$exists": False}},
+                {"referred_by": None},
+                {"referred_by": ""}
+            ]
+        }).to_list(None)
         trees = []
         for root_user in root_users:
-            tree = await build_tree_node(root_user)
-            trees.append(tree)
+            if root_user.get("role") != "admin":  # Skip admin from tree
+                tree = await build_tree_node(root_user)
+                trees.append(tree)
         return trees
     else:
         # Member sees their own tree
