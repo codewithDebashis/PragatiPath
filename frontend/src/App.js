@@ -2252,6 +2252,35 @@ function AdminSettingsCard({ settings, onUpdate }) {
               )}
             </div>
           </div>
+
+          <div>
+            <Label>Admin UPI Address (for member payments)</Label>
+            {editing ? (
+              <Input
+                type="text"
+                value={formData.admin_upi || ''}
+                onChange={(e) => setFormData({...formData, admin_upi: e.target.value})}
+                placeholder="e.g., admin@paytm or 9999999999@upi"
+              />
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded border mt-1">
+                <p className="font-mono font-medium">{settings.admin_upi || 'Not set'}</p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    navigator.clipboard.writeText(settings.admin_upi || '');
+                    toast.success('UPI address copied!');
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Members will see this UPI address to deposit their registration fee
+            </p>
+          </div>
           
           <div>
             <Label>Commission Rates (%)</Label>
