@@ -363,7 +363,8 @@ async def login(user_login: MLMLogin):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": MLMUser(**parse_from_mongo(user)).dict()
+        "user": MLMUser(**parse_from_mongo(user)).dict(),
+        "must_change_password": user.get("must_change_password", False)
     }
 
 @api_router.post("/admin/mark-registration-paid/{user_id}")
