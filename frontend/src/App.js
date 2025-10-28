@@ -69,7 +69,10 @@ function AuthProvider({ children }) {
   const register = async (formData) => {
     try {
       const response = await axios.post(`${API}/auth/register`, formData);
-      toast.success('Registration successful! Please wait for admin approval.');
+      const { default_password, mobile_number } = response.data;
+      toast.success(`Registration successful! Your default password is your mobile number: ${default_password}. Please change it after first login.`, {
+        duration: 8000
+      });
       return response.data;
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Registration failed');
