@@ -829,6 +829,18 @@ function MemberDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Scrolling Text Banner - Fixed at bottom above mobile nav on small screens, just at bottom on desktop */}
+        {adSettings && adSettings.scrolling_text && (
+          <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white py-2 z-40 overflow-hidden">
+            <div className="animate-marquee whitespace-nowrap">
+              <span className="text-sm font-medium mx-4">✨ {adSettings.scrolling_text} ✨</span>
+              <span className="text-sm font-medium mx-4">✨ {adSettings.scrolling_text} ✨</span>
+              <span className="text-sm font-medium mx-4">✨ {adSettings.scrolling_text} ✨</span>
+              <span className="text-sm font-medium mx-4">✨ {adSettings.scrolling_text} ✨</span>
+            </div>
+          </div>
+        )}
       </div>
       )}
     </div>
