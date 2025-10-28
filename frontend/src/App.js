@@ -2751,6 +2751,91 @@ function AdminSettingsCard({ settings, onUpdate }) {
             </div>
           </div>
           
+          {/* Advertisement Video Section */}
+          <div className="border-t pt-4">
+            <Label className="text-base font-medium">Advertisement Video</Label>
+            <p className="text-xs text-gray-500 mb-3">Upload video or provide YouTube/external URL. Max 20MB for uploaded videos.</p>
+            
+            {editing ? (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.advertisement_video_type === 'url' ? 'default' : 'outline'}
+                    onClick={() => setFormData({...formData, advertisement_video_type: 'url'})}
+                  >
+                    Video URL
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.advertisement_video_type === 'file' ? 'default' : 'outline'}
+                    onClick={() => setFormData({...formData, advertisement_video_type: 'file'})}
+                  >
+                    Upload Video
+                  </Button>
+                </div>
+                
+                {formData.advertisement_video_type === 'url' ? (
+                  <Input
+                    type="text"
+                    placeholder="Enter YouTube or video URL"
+                    value={formData.advertisement_video_url || ''}
+                    onChange={(e) => setFormData({...formData, advertisement_video_url: e.target.value})}
+                  />
+                ) : (
+                  <Input
+                    type="file"
+                    accept="video/mp4,video/avi,video/mov,video/webm"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        // Store file in formData for later upload
+                        setFormData({...formData, video_file: file});
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="text-sm">
+                {settings.advertisement_video_type === 'url' ? (
+                  <p className="text-gray-600">
+                    {settings.advertisement_video_url ? (
+                      <span>URL: <a href={settings.advertisement_video_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{settings.advertisement_video_url}</a></span>
+                    ) : (
+                      <span>No video URL set</span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-gray-600">
+                    {settings.advertisement_video_name ? `Uploaded: ${settings.advertisement_video_name}` : 'No video uploaded'}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Scrolling Text Section */}
+          <div className="border-t pt-4">
+            <Label className="text-base font-medium">Scrolling Text Banner</Label>
+            <p className="text-xs text-gray-500 mb-2">Text shown at bottom of member screens</p>
+            
+            {editing ? (
+              <Input
+                type="text"
+                placeholder="Enter scrolling text"
+                value={formData.scrolling_text || ''}
+                onChange={(e) => setFormData({...formData, scrolling_text: e.target.value})}
+              />
+            ) : (
+              <div className="p-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded border border-blue-200">
+                <p className="text-sm font-medium text-gray-800">{settings.scrolling_text || 'You are in the best platform where earning is easy'}</p>
+              </div>
+            )}
+          </div>
+          
           {editing && (
             <div className="flex justify-end">
               <Button onClick={handleSave}>
