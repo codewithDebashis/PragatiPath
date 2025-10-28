@@ -1410,34 +1410,125 @@ function MemberAssignmentCard({ assignment, onSubmit }) {
                   Submit Work
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Submit Work: {assignment.title}</DialogTitle>
+                  <DialogTitle className="text-xl">Submit Your Work</DialogTitle>
+                  <p className="text-sm text-gray-600">{assignment.title}</p>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-6 py-4">
+                  {/* File Upload Area */}
                   <div>
-                    <Label htmlFor="notes">Notes (optional)</Label>
+                    <Label className="text-base font-medium mb-3 block">Upload Your Work File *</Label>
+                    
+                    {!file ? (
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                          dragActive 
+                            ? 'border-blue-500 bg-blue-50' 
+                            : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                        }`}
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                        onClick={() => document.getElementById('file-upload-input').click()}
+                      >
+                        <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                        <p className="text-lg font-medium text-gray-700 mb-2">
+                          Drop your file here or click to browse
+                        </p>
+                        <p className="text-sm text-gray-500 mb-4">
+                          Supports: Images, PDFs, Videos, Documents, Excel files
+                        </p>
+                        <Button type="button" variant="outline" size="sm">
+                          Choose File
+                        </Button>
+                        <input
+                          id="file-upload-input"
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileChange}
+                          accept="image/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                        />
+                      </div>
+                    ) : (
+                      <div className="border-2 border-green-300 bg-green-50 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{file.name}</p>
+                              <p className="text-sm text-gray-600">{formatFileSize(file.size)}</p>
+                              <div className="mt-2 flex items-center text-sm text-green-600">
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                File selected and ready to upload
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={removeFile}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <XCircle className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notes Section */}
+                  <div>
+                    <Label htmlFor="notes" className="text-base font-medium mb-2 block">
+                      Additional Notes <span className="text-gray-400 font-normal">(Optional)</span>
+                    </Label>
                     <Textarea
                       id="notes"
-                      placeholder="Add notes about your submission..."
+                      placeholder="Add any comments or notes about your submission..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
+                      rows={4}
+                      className="resize-none"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Describe your work or add any relevant information
+                    </p>
                   </div>
-                  <div>
-                    <Label htmlFor="file">Upload Work File</Label>
-                    <Input
-                      id="file"
-                      type="file"
-                      onChange={(e) => setFile(e.target.files[0])}
-                    />
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setShowSubmissionDialog(false)}>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-3 pt-4 border-t">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      onClick={() => {
+                        setShowSubmissionDialog(false);
+                        setFile(null);
+                        setNotes('');
+                      }}
+                      disabled={submitting}
+                    >
                       Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={submitting}>
-                      {submitting ? 'Submitting...' : 'Submit Work'}
+                    <Button 
+                      onClick={handleSubmit} 
+                      disabled={submitting || !file}
+                      className="bg-green-600 hover:bg-green-700 min-w-[120px]"
+                    >
+                      {submitting ? (
+                        <>
+                          <span className="animate-spin mr-2">⏳</span>
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Submit Work
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
