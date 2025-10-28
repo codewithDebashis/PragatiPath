@@ -2281,13 +2281,6 @@ function AdminSubmissionCard({ submission, onUpdate }) {
     </Card>
   );
 }
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function AdminWithdrawalCard({ request, onUpdate }) {
   const handleProcess = async (action) => {
