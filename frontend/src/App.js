@@ -1580,6 +1580,122 @@ function ReferralLinkCard({ referralCode }) {
   );
 }
 
+
+// Force Change Password Dialog Component
+function ForceChangePasswordDialog({ open, onPasswordChanged }) {
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill all fields');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    if (oldPassword === newPassword) {
+      toast.error('New password must be different from current password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('old_password', oldPassword);
+      formData.append('new_password', newPassword);
+
+      await axios.post(`${API}/auth/change-password`, formData);
+      
+      // Update localStorage to remove must_change_password flag
+      localStorage.setItem('must_change_password', 'false');
+      
+      toast.success('Password changed successfully!');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      // Notify parent component
+      if (onPasswordChanged) {
+        onPasswordChanged();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to change password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={() => {}}>
+      <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-red-600">⚠️ Password Change Required</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <p className="text-sm text-yellow-800">
+              You are using a default password (your mobile number). For security reasons, you must change your password before accessing your dashboard.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="old-password">Current Password</Label>
+            <Input
+              id="old-password"
+              type="password"
+              placeholder="Enter your current password (mobile number)"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              placeholder="Enter new password (min 6 characters)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm New Password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              placeholder="Re-enter new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+
+          <Button 
+            onClick={handleChangePassword} 
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            disabled={loading}
+          >
+            {loading ? 'Changing Password...' : 'Change Password'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Admin Component Stubs (basic implementations)
 function AdminMemberCard({ member, settings, onUpdate }) {
   const [showNetwork, setShowNetwork] = useState(false);
