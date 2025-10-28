@@ -1369,6 +1369,29 @@ async def validate_referral_code(referral_code: str):
         "referral_code": referral_code
     }
 
+
+@api_router.get("/settings/public")
+async def get_public_settings():
+    """Get public settings like advertisement video and scrolling text - no auth required"""
+    settings = await db.mlm_settings.find_one({})
+    
+    if not settings:
+        return {
+            "advertisement_video_type": "url",
+            "advertisement_video_url": None,
+            "advertisement_video_file": None,
+            "scrolling_text": "You are in the best platform where earning is easy"
+        }
+    
+    return {
+        "advertisement_video_type": settings.get("advertisement_video_type", "url"),
+        "advertisement_video_url": settings.get("advertisement_video_url"),
+        "advertisement_video_file": settings.get("advertisement_video_file"),
+        "advertisement_video_name": settings.get("advertisement_video_name"),
+        "scrolling_text": settings.get("scrolling_text", "You are in the best platform where earning is easy")
+    }
+
+
 @api_router.post("/admin/change-password")
 async def admin_change_password(
     new_password: str = Form(...),
