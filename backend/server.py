@@ -478,11 +478,11 @@ async def create_assignment(
     
     # Handle assignment to all members vs specific member
     if assigned_to == "all_members":
-        # Get all active members with paid registration
+        # Get all active members who can work (paid at least one installment)
         members = await db.mlm_users.find({
             "role": "member", 
             "is_active": True, 
-            "registration_fee_paid": True
+            "can_work": True
         }).to_list(None)
         
         assignment_ids = []
