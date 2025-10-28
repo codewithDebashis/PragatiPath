@@ -332,6 +332,7 @@ function MemberDashboard() {
     tree: true
   });
   const [activeTab, setActiveTab] = useState('work');
+  const [advertisements, setAdvertisements] = useState([]);
   const { user, logout } = useAuth();
 
   useEffect(() => {
