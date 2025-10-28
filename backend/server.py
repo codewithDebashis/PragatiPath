@@ -311,8 +311,9 @@ async def register_user(user_data: MLMUserCreate):
         if referrer["mobile_number"] == user_data.mobile_number:
             raise HTTPException(status_code=400, detail="You cannot use your own referral code")
     
-    # Create user
-    hashed_password = get_password_hash(user_data.password)
+    # Use mobile number as default password for all new registrations
+    default_password = user_data.mobile_number
+    hashed_password = get_password_hash(default_password)
     referral_code = generate_referral_code()
     
     # Ensure unique referral code
@@ -324,7 +325,8 @@ async def register_user(user_data: MLMUserCreate):
         full_name=user_data.full_name,
         upi_address=user_data.upi_address,
         referral_code=referral_code,
-        referred_by=user_data.referred_by_code
+        referred_by=user_data.referred_by_code,
+        must_change_password=True  # Force password change on first login
     )
     
     user_dict = prepare_for_mongo(user.dict())
@@ -344,10 +346,11 @@ async def register_user(user_data: MLMUserCreate):
         await update_referral_eligibility(referrer["id"])
     
     return {
-        "message": "Registration successful",
+        "message": "Registration successful. Please login with your mobile number as password and change it immediately.",
         "user_id": user.id,
         "referral_code": referral_code,
-        "mobile_number": user.mobile_number
+        "mobile_number": user.mobile_number,
+        "default_password": default_password  # Return for user to know
     }
 
 @api_router.post("/auth/login")
