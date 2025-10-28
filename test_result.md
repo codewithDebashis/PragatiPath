@@ -109,6 +109,10 @@ user_problem_statement: |
   3. Daily work report - Members submit reports with class, subject, details columns
   4. Daily work report export - Admin can download reports as Excel file
   5. Multi-file type support - Support image, pdf, video, ppt, excel, collage file types
+  6. Admin download uploaded work - Admin must be able to download employee's submitted work before approval
+  7. Split payment functionality - Admin can split payment between Wallet and My Contribution
+  8. Total amount display - Employee dashboard must show full amount as paid (wallet + contribution combined)
+  9. Assignment visibility - Admin must see which employee each work is assigned to
 
 backend:
   - task: "Withdrawal prerequisites API with 5 joinees check"
