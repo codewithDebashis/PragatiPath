@@ -649,7 +649,7 @@ async def review_submission(
         
         # Distribute commissions (only for wallet payments, not contribution)
         if payment_destination == "wallet":
-        await calculate_and_distribute_commissions(submission["user_id"], earning_amount)
+            await calculate_and_distribute_commissions(submission["user_id"], earning_amount)
     
     return {
         "message": f"Submission {action}d successfully",
