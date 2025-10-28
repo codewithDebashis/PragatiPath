@@ -2647,18 +2647,25 @@ function AdminSettingsCard({ settings, onUpdate }) {
   const handleSave = async () => {
     try {
       const submitData = new FormData();
+      
+      // Add all form fields except video_file
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (key !== 'video_file' && value !== undefined && value !== null) {
           submitData.append(key, value);
         }
       });
+      
+      // Handle video file separately if it exists
+      if (formData.advertisement_video_type === 'file' && formData.video_file) {
+        submitData.append('video_file', formData.video_file);
+      }
       
       await axios.post(`${API}/admin/settings`, submitData);
       toast.success('Settings updated successfully');
       setEditing(false);
       onUpdate();
     } catch (error) {
-      toast.error('Failed to update settings');
+      toast.error(error.response?.data?.detail || 'Failed to update settings');
     }
   };
 
