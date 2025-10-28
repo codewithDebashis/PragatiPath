@@ -206,10 +206,10 @@ class SplitPaymentAPITester:
             'notes': 'Completed the assignment work as requested'
         }
         
-        # Create a simple text file for submission
-        file_content = b"Assignment submission content - split payment test"
+        # Create a PDF file for submission (supported file type)
+        file_content = b"%PDF-1.4 Assignment submission content - split payment test"
         submission_files = {
-            'file': ('submission.txt', io.BytesIO(file_content), 'text/plain')
+            'file': ('submission.pdf', io.BytesIO(file_content), 'application/pdf')
         }
         
         success, response = self.run_test(
