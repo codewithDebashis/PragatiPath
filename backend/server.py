@@ -857,8 +857,17 @@ async def get_referral_tree(
     if user_id and current_user.role == "admin":
         user_data = await db.mlm_users.find_one({"id": user_id})
         if user_data:
-            tree = await build_tree_node(user_data)
-            return [tree]
+            # Get direct referrals of this user (these are Level 1 for this view)
+            direct_referrals = await db.mlm_users.find({
+                "referred_by": user_data["referral_code"]
+            }).to_list(None)
+            
+            trees = []
+            for referral in direct_referrals:
+                tree = await build_tree_node(referral, level=1, max_level=5)
+                trees.append(tree)
+            
+            return trees
         return []
     
     # Admin viewing all root-level trees
