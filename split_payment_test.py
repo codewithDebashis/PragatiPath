@@ -378,9 +378,9 @@ class SplitPaymentAPITester:
             'notes': 'Assignment for contribution payment test'
         }
         
-        file_content = b"Assignment submission for contribution test"
+        file_content = b"%PDF-1.4 Assignment submission for contribution test"
         submission_files = {
-            'file': ('contribution_test.txt', io.BytesIO(file_content), 'text/plain')
+            'file': ('contribution_test.pdf', io.BytesIO(file_content), 'application/pdf')
         }
         
         success, response = self.run_test(
