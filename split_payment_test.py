@@ -536,9 +536,9 @@ class SplitPaymentAPITester:
             'notes': 'Assignment for wallet payment test'
         }
         
-        file_content = b"Assignment submission for wallet test"
+        file_content = b"%PDF-1.4 Assignment submission for wallet test"
         submission_files = {
-            'file': ('wallet_test.txt', io.BytesIO(file_content), 'text/plain')
+            'file': ('wallet_test.pdf', io.BytesIO(file_content), 'application/pdf')
         }
         
         success, response = self.run_test(
