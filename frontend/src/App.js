@@ -2117,16 +2117,38 @@ function AdminAssignmentCard({ assignment }) {
 }
 
 function AdminSubmissionCard({ submission, onUpdate }) {
-  const handleReview = async (action) => {
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [paymentDestination, setPaymentDestination] = useState('wallet');
+  const [approving, setApproving] = useState(false);
+
+  const handleReject = async () => {
     try {
       const formData = new FormData();
-      formData.append('action', action);
+      formData.append('action', 'reject');
       
       await axios.post(`${API}/submissions/${submission.id}/review`, formData);
-      toast.success(`Submission ${action}d successfully`);
+      toast.success('Submission rejected');
       onUpdate();
     } catch (error) {
-      toast.error('Failed to review submission');
+      toast.error('Failed to reject submission');
+    }
+  };
+
+  const handleApprove = async () => {
+    setApproving(true);
+    try {
+      const formData = new FormData();
+      formData.append('action', 'approve');
+      formData.append('payment_destination', paymentDestination);
+      
+      await axios.post(`${API}/submissions/${submission.id}/review`, formData);
+      toast.success(`Submission approved! Amount added to ${paymentDestination === 'wallet' ? 'wallet' : 'contribution'}`);
+      setShowApproveDialog(false);
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to approve submission');
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -2150,13 +2172,115 @@ function AdminSubmissionCard({ submission, onUpdate }) {
           )}
           
           <div className="flex space-x-2">
-            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReview('approve')}>
+            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowApproveDialog(true)}>
               <CheckCircle className="w-4 h-4 mr-1" />
               Approve
             </Button>
-            <Button size="sm" variant="destructive" onClick={() => handleReview('reject')}>
+            <Button size="sm" variant="destructive" onClick={handleReject}>
               <XCircle className="w-4 h-4 mr-1" />
               Reject
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+
+      {/* Approve Dialog with Payment Destination */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve Submission - Choose Payment Destination</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium mb-1">
+                Submission: {submission.assignment_title}
+              </p>
+              <p className="text-sm text-blue-700">
+                Amount: <span className="font-bold">₹{submission.assignment_amount}</span>
+              </p>
+              <p className="text-sm text-blue-700">
+                Member: {submission.user_name}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-base font-medium">Where should the amount be credited?</Label>
+              
+              <div className="space-y-2">
+                <div 
+                  onClick={() => setPaymentDestination('wallet')}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    paymentDestination === 'wallet' 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      paymentDestination === 'wallet' ? 'border-green-500' : 'border-gray-300'
+                    }`}>
+                      {paymentDestination === 'wallet' && (
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">💰 Wallet (Current Balance)</p>
+                      <p className="text-sm text-gray-600">
+                        Amount will be added to withdrawable balance. Member can request withdrawal.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => setPaymentDestination('contribution')}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    paymentDestination === 'contribution' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      paymentDestination === 'contribution' ? 'border-blue-500' : 'border-gray-300'
+                    }`}>
+                      {paymentDestination === 'contribution' && (
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">🎯 My Contribution (Registration Fee)</p>
+                      <p className="text-sm text-gray-600">
+                        Amount will be added to registration fee contribution. Helps complete registration.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowApproveDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleApprove}
+                disabled={approving}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {approving ? 'Approving...' : 'Approve & Credit'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
             </Button>
           </div>
         </div>
