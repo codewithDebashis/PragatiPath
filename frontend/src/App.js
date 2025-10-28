@@ -3058,6 +3058,16 @@ function App() {
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+
+  useEffect(() => {
+    const mustChange = localStorage.getItem('must_change_password') === 'true';
+    setMustChangePassword(mustChange);
+  }, [user]);
+
+  const handlePasswordChanged = () => {
+    setMustChangePassword(false);
+  };
 
   if (loading) {
     return (
@@ -3069,6 +3079,25 @@ function AppContent() {
 
   if (!user) {
     return <LoginRegister />;
+  }
+
+  // Show force change password dialog if required
+  if (mustChangePassword) {
+    return (
+      <>
+        <ForceChangePasswordDialog 
+          open={mustChangePassword} 
+          onPasswordChanged={handlePasswordChanged}
+        />
+        {/* Show a blocking overlay */}
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+          <Card className="max-w-md p-6 text-center">
+            <h2 className="text-xl font-bold mb-2">Password Change Required</h2>
+            <p className="text-gray-600">Please change your password to continue.</p>
+          </Card>
+        </div>
+      </>
+    );
   }
 
   return user.role === 'admin' ? <AdminDashboard /> : <MemberDashboard />;
