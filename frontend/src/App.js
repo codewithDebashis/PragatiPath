@@ -2100,13 +2100,34 @@ function AdminAssignmentCard({ assignment }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex justify-between items-center">
-          <div>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
             <h3 className="font-medium">{assignment.title}</h3>
             <p className="text-sm text-gray-600">{assignment.description}</p>
             <p className="text-xs text-gray-500">Deadline: {new Date(assignment.deadline).toLocaleDateString()}</p>
+            {assignment.member_name && (
+              <div className="mt-2 bg-blue-50 border border-blue-200 rounded px-2 py-1 inline-block">
+                <p className="text-xs text-blue-800">
+                  <span className="font-medium">Assigned to:</span> {assignment.member_name} ({assignment.member_mobile})
+                </p>
+              </div>
+            )}
+            {!assignment.member_name && assignment.assigned_to && (
+              <div className="mt-2 bg-gray-50 border border-gray-200 rounded px-2 py-1 inline-block">
+                <p className="text-xs text-gray-600">
+                  <span className="font-medium">Assigned to:</span> Member ID: {assignment.assigned_to}
+                </p>
+              </div>
+            )}
+            {!assignment.assigned_to && (
+              <div className="mt-2 bg-yellow-50 border border-yellow-200 rounded px-2 py-1 inline-block">
+                <p className="text-xs text-yellow-800">
+                  <span className="font-medium">Status:</span> Unassigned
+                </p>
+              </div>
+            )}
           </div>
-          <div className="text-right">
+          <div className="text-right ml-4">
             <p className="font-bold text-green-600">₹{assignment.amount}</p>
             <Badge>{assignment.is_active ? 'Active' : 'Inactive'}</Badge>
           </div>
