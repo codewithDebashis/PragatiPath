@@ -839,6 +839,8 @@ def main():
                 print(f"   Expected: {failure['expected']}, Got: {failure['actual']}")
                 print(f"   Response: {failure.get('response', 'N/A')}")
     
+    print("\n" + "="*70)
+    
     # Return summary for test_result.md update
     return {
         "total_tests": tester.tests_run,
