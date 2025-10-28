@@ -2061,7 +2061,7 @@ function CreateWorkDialog({ onWorkCreated }) {
                   📢 All Members (Broadcast)
                 </SelectItem>
                 <div className="border-t my-1"></div>
-                {members.filter(member => member.registration_fee_paid).map((member) => (
+                {members.filter(member => member.can_work).map((member) => (
                   <SelectItem key={member.id} value={member.id}>
                     {member.full_name} ({member.mobile_number})
                   </SelectItem>
