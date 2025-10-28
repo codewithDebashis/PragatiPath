@@ -385,8 +385,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Frontend components testing"
-    - "End-to-end integration testing"
+    - "Split payment API - Wallet and My Contribution allocation"
+    - "Admin download uploaded work files"
+    - "Split payment UI for admin approval"
+    - "Employee dashboard shows total earnings correctly"
+    - "Admin assignment card shows assigned employee"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
