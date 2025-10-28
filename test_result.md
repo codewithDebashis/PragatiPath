@@ -211,7 +211,7 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -219,6 +219,9 @@ backend:
       - working: true
         agent: "main"
         comment: "✅ VERIFIED: Backend correctly increments total_earnings with both wallet and contribution amounts. Line 616: wallet portion added to total_earnings. Line 640: contribution portion added to total_earnings. Employee will see full Rs 300 as 'Total Earned' even if split Rs 200 wallet + Rs 100 contribution."
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE TESTING COMPLETED: Split payment API working perfectly. Tested Rs 200 wallet + Rs 100 contribution split - wallet balance increased by Rs 200, contribution increased by Rs 100, total_earnings increased by Rs 300 (full amount). All three payment destinations (split, wallet, contribution) working correctly. Employee dashboard shows full amount as earned. Critical validation: total_earnings = current_balance + work_earnings_to_contribution."
 
   - task: "Assignment API returns assigned employee info"
     implemented: true
@@ -231,6 +234,9 @@ backend:
       - working: true
         agent: "main"
         comment: "✅ VERIFIED: Backend get_assignments endpoint (lines 400-409) already returns member_name and member_mobile for each assignment when admin fetches assignments. This data is ready for frontend to display."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Admin get assignments API working correctly. Returns member_name and member_mobile for assigned work. Unassigned work shows 'Unassigned' and 'N/A' appropriately. Admin can see which employee each work is assigned to with proper member details (name and mobile number)."
 
 frontend:
   - task: "DailyWorkReportDialog component"
