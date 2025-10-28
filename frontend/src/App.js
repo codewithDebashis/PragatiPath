@@ -633,6 +633,41 @@ function MemberDashboard() {
           </Card>
         )}
 
+        {/* Advertisement Video Section */}
+        {adSettings && (adSettings.advertisement_video_url || adSettings.advertisement_video_file) && (
+          <Card className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Important Announcement
+              </h3>
+              {adSettings.advertisement_video_type === 'url' && adSettings.advertisement_video_url ? (
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2">
+                  <video 
+                    controls 
+                    className="w-full rounded-lg"
+                    style={{ maxHeight: '300px' }}
+                  >
+                    <source src={adSettings.advertisement_video_url} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ) : adSettings.advertisement_video_type === 'file' && adSettings.advertisement_video_file ? (
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2">
+                  <video 
+                    controls 
+                    className="w-full rounded-lg"
+                    style={{ maxHeight: '300px' }}
+                  >
+                    <source src={adSettings.advertisement_video_file} />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 hidden md:grid">
