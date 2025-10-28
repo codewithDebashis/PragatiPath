@@ -113,6 +113,9 @@ user_problem_statement: |
   7. Split payment functionality - Admin can split payment between Wallet and My Contribution
   8. Total amount display - Employee dashboard must show full amount as paid (wallet + contribution combined)
   9. Assignment visibility - Admin must see which employee each work is assigned to
+  10. Forget password - Admin can reset member passwords from admin dashboard
+  11. Default password - All new registrations get mobile number as default password
+  12. Mandatory password change - Force password change on first login for security
 
 backend:
   - task: "Withdrawal prerequisites API with 5 joinees check"
