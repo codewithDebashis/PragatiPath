@@ -561,7 +561,9 @@ async def submit_assignment(
 async def review_submission(
     submission_id: str,
     action: str = Form(...),  # "approve" or "reject"
-    payment_destination: str = Form("wallet"),  # "wallet" or "contribution"
+    payment_destination: str = Form("wallet"),  # "wallet", "contribution", or "split"
+    wallet_amount: Optional[float] = Form(None),
+    contribution_amount: Optional[float] = Form(None),
     comments: Optional[str] = Form(None),
     current_user: MLMUser = Depends(get_current_user)
 ):
@@ -590,25 +592,85 @@ async def review_submission(
     if action == "approve":
         # Get settings for registration fee
         settings = await get_mlm_settings()
-        earning_amount = assignment["amount"]
+        total_earning = assignment["amount"]
         
         # Get current user data
         user = await db.mlm_users.find_one({"id": submission["user_id"]})
         
-        if payment_destination == "contribution":
-            # Add to registration fee contribution (total_installments_paid)
-            new_installment_total = user.get("total_installments_paid", 0) + earning_amount
+        if payment_destination == "split":
+            # Split payment between wallet and contribution
+            wallet_amt = wallet_amount or 0
+            contrib_amt = contribution_amount or 0
             
-            # Check if registration is now complete
+            # Validate split amounts
+            if abs((wallet_amt + contrib_amt) - total_earning) > 0.01:
+                raise HTTPException(status_code=400, detail="Split amounts must equal total earning")
+            
+            # Add to wallet
+            if wallet_amt > 0:
+                await db.mlm_users.update_one(
+                    {"id": submission["user_id"]},
+                    {"$inc": {
+                        "current_balance": wallet_amt,
+                        "total_earnings": wallet_amt
+                    }}
+                )
+                
+                # Record wallet transaction
+                wallet_txn = Transaction(
+                    user_id=submission["user_id"],
+                    type="earning",
+                    amount=wallet_amt,
+                    description=f"Work approved (wallet portion): {assignment['title']}",
+                    reference_id=assignment["id"]
+                )
+                await db.transactions.insert_one(prepare_for_mongo(wallet_txn.dict()))
+                
+                # Distribute commissions for wallet portion only
+                await calculate_and_distribute_commissions(submission["user_id"], wallet_amt)
+            
+            # Add to contribution
+            if contrib_amt > 0:
+                new_installment_total = user.get("total_installments_paid", 0) + contrib_amt
+                registration_complete = new_installment_total >= settings.registration_fee
+                
+                update_data = {
+                    "$inc": {
+                        "total_installments_paid": contrib_amt,
+                        "total_earnings": contrib_amt
+                    },
+                    "$push": {
+                        "registration_installments": contrib_amt
+                    }
+                }
+                
+                if registration_complete:
+                    update_data["$set"] = {"registration_fee_paid": True}
+                
+                await db.mlm_users.update_one({"id": submission["user_id"]}, update_data)
+                
+                # Record contribution transaction
+                contrib_txn = Transaction(
+                    user_id=submission["user_id"],
+                    type="contribution",
+                    amount=contrib_amt,
+                    description=f"Work earnings to contribution: {assignment['title']}",
+                    reference_id=assignment["id"]
+                )
+                await db.transactions.insert_one(prepare_for_mongo(contrib_txn.dict()))
+        
+        elif payment_destination == "contribution":
+            # Full amount to contribution
+            new_installment_total = user.get("total_installments_paid", 0) + total_earning
             registration_complete = new_installment_total >= settings.registration_fee
             
             update_data = {
                 "$inc": {
-                    "total_installments_paid": earning_amount,
-                    "total_earnings": earning_amount
+                    "total_installments_paid": total_earning,
+                    "total_earnings": total_earning
                 },
                 "$push": {
-                    "registration_installments": earning_amount
+                    "registration_installments": total_earning
                 }
             }
             
@@ -621,19 +683,19 @@ async def review_submission(
             transaction = Transaction(
                 user_id=submission["user_id"],
                 type="contribution",
-                amount=earning_amount,
+                amount=total_earning,
                 description=f"Work earnings added to registration contribution: {assignment['title']}",
                 reference_id=assignment["id"]
             )
             await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
             
         else:  # wallet
-            # Add to wallet balance
+            # Full amount to wallet
             await db.mlm_users.update_one(
                 {"id": submission["user_id"]},
                 {"$inc": {
-                    "current_balance": earning_amount,
-                    "total_earnings": earning_amount
+                    "current_balance": total_earning,
+                    "total_earnings": total_earning
                 }}
             )
             
@@ -641,15 +703,14 @@ async def review_submission(
             transaction = Transaction(
                 user_id=submission["user_id"],
                 type="earning",
-                amount=earning_amount,
+                amount=total_earning,
                 description=f"Work approved: {assignment['title']}",
                 reference_id=assignment["id"]
             )
             await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
-        
-        # Distribute commissions (only for wallet payments, not contribution)
-        if payment_destination == "wallet":
-            await calculate_and_distribute_commissions(submission["user_id"], earning_amount)
+            
+            # Distribute commissions
+            await calculate_and_distribute_commissions(submission["user_id"], total_earning)
     
     return {
         "message": f"Submission {action}d successfully",
