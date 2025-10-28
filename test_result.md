@@ -205,6 +205,33 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: Multi-file type support working correctly. Successfully tested assignment creation with PDF files and submission with JPG files. All specified file extensions (.jpg, .jpeg, .png, .gif, .pdf, .doc, .docx, .ppt, .pptx, .xls, .xlsx, .mp4, .avi, .mov, .wmv) are properly validated and accepted."
 
+  - task: "Split payment API - Wallet and My Contribution allocation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Split payment logic implemented in review_submission endpoint (lines 600-660). When split payment is selected, wallet_amount goes to current_balance and contribution_amount goes to total_installments_paid. BOTH amounts are added to total_earnings so employee sees full payment."
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED: Backend correctly increments total_earnings with both wallet and contribution amounts. Line 616: wallet portion added to total_earnings. Line 640: contribution portion added to total_earnings. Employee will see full Rs 300 as 'Total Earned' even if split Rs 200 wallet + Rs 100 contribution."
+
+  - task: "Assignment API returns assigned employee info"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED: Backend get_assignments endpoint (lines 400-409) already returns member_name and member_mobile for each assignment when admin fetches assignments. This data is ready for frontend to display."
+
 frontend:
   - task: "DailyWorkReportDialog component"
     implemented: true
