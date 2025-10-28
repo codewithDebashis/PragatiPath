@@ -703,14 +703,18 @@ class SplitPaymentAPITester:
                 print(f"   ❌ Total earnings incorrect - Expected ₹{expected_total_earnings}, got ₹{total_earnings}")
                 print("   ❌ CRITICAL VALIDATION FAILED: Employee does not see full amount")
             
-            # Additional verification: Check that total_earnings = current_balance + total_installments_paid
-            calculated_total = current_balance + total_installments_paid
+            # Additional verification: Check that total_earnings = current_balance + work_earnings_to_contribution
+            # work_earnings_to_contribution = total_installments_paid - initial_registration_fee
+            initial_registration_fee = 100  # The ₹100 we paid initially
+            work_earnings_to_contribution = total_installments_paid - initial_registration_fee
+            calculated_total = current_balance + work_earnings_to_contribution
             balance_calculation_correct = abs(total_earnings - calculated_total) < 0.01
             
             if balance_calculation_correct:
-                print(f"   ✅ Total earnings calculation verified: ₹{total_earnings} = ₹{current_balance} (balance) + ₹{total_installments_paid} (contribution)")
+                print(f"   ✅ Total earnings calculation verified: ₹{total_earnings} = ₹{current_balance} (wallet) + ₹{work_earnings_to_contribution} (work to contribution)")
+                print(f"   ✅ Breakdown: ₹{total_installments_paid} (total installments) - ₹{initial_registration_fee} (registration fee) = ₹{work_earnings_to_contribution} (work earnings to contribution)")
             else:
-                print(f"   ❌ Total earnings calculation error: ₹{total_earnings} ≠ ₹{current_balance} + ₹{total_installments_paid}")
+                print(f"   ❌ Total earnings calculation error: ₹{total_earnings} ≠ ₹{current_balance} (wallet) + ₹{work_earnings_to_contribution} (work to contribution)")
             
             return earnings_correct and balance_calculation_correct
         
