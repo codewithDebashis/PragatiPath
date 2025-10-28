@@ -152,6 +152,14 @@ class MLMSettings(BaseModel):
     commission_l3: float = 1.0
     commission_l4: float = 1.0
     commission_l5: float = 1.0
+    
+    # Advertisement features
+    advertisement_video_type: str = "url"  # "url" or "file"
+    advertisement_video_url: Optional[str] = None  # YouTube or external video URL
+    advertisement_video_file: Optional[str] = None  # Base64 encoded video file
+    advertisement_video_name: Optional[str] = None  # Original filename
+    scrolling_text: str = "You are in the best platform where earning is easy"
+    
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: str
 
