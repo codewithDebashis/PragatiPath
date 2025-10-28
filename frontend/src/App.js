@@ -1478,7 +1478,7 @@ function ReferralTreeCard({ tree }) {
 
 // Network Tree View Component (for admin to see individual member's network)
 function NetworkTreeView({ userId, userName }) {
-  const [tree, setTree] = useState(null);
+  const [trees, setTrees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
@@ -1494,7 +1494,7 @@ function NetworkTreeView({ userId, userName }) {
       const response = await axios.get(`${API}/referral/tree`, {
         params: { user_id: userId }
       });
-      setTree(response.data[0]); // Get first tree (root node)
+      setTrees(response.data); // Get all trees (direct referrals)
     } catch (error) {
       console.error('Failed to fetch tree:', error);
     } finally {
@@ -1520,8 +1520,12 @@ function NetworkTreeView({ userId, userName }) {
             <div className="flex justify-center py-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
-          ) : tree ? (
-            <ReferralTreeCard tree={tree} />
+          ) : trees.length > 0 ? (
+            <div className="space-y-3">
+              {trees.map((tree, index) => (
+                <ReferralTreeCard key={tree.id || index} tree={tree} />
+              ))}
+            </div>
           ) : (
             <p className="text-sm text-gray-500 py-4">No referrals yet for {userName}</p>
           )}
