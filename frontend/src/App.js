@@ -1733,6 +1733,18 @@ function AdminMemberCard({ member, settings, onUpdate }) {
     }
   };
 
+  const resetPassword = async () => {
+    try {
+      const response = await axios.post(`${API}/admin/reset-password/${member.id}`);
+      toast.success(`Password reset to mobile number: ${response.data.default_password}`, {
+        duration: 5000
+      });
+      onUpdate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to reset password');
+    }
+  };
+
   const recordInstallment = async () => {
     if (!installmentNumber || !installmentAmount) {
       toast.error('Please fill in all fields');
