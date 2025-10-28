@@ -151,6 +151,14 @@ class MLMSettings(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: str
 
+class Advertisement(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    message: str
+    active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str
+
 # Helper functions
 def prepare_for_mongo(data):
     if isinstance(data, dict):
