@@ -379,6 +379,14 @@ function MemberDashboard() {
       toast.error('Failed to fetch referral tree');
       setLoading(prev => ({ ...prev, tree: false }));
     }
+
+    // Fetch advertisements
+    try {
+      const adsRes = await axios.get(`${API}/advertisements`);
+      setAdvertisements(adsRes.data);
+    } catch (error) {
+      console.error('Failed to fetch advertisements');
+    }
   };
 
   const isInitialLoading = loading.stats;
