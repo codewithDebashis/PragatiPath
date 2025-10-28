@@ -322,9 +322,12 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Download button added in AdminSubmissionCard component (lines 2137-2149, 2221-2232). Admin can click Download button to retrieve employee's submitted work file before approving. Uses base64 data to create downloadable link."
+      - working: false
+        agent: "main"
+        comment: "Bug identified: Frontend expects 'file_name' and 'file_data' but backend was returning 'submission_file_name' and 'submission_file_data'. This caused download button to not show up."
       - working: true
         agent: "main"
-        comment: "✅ VERIFIED: Download functionality is implemented in AdminSubmissionCard. Shows file name with download icon. When clicked, creates a temporary link and downloads the file."
+        comment: "✅ FIXED: Updated backend /admin/submissions endpoint to map submission_file_name to file_name and submission_file_data to file_data for frontend compatibility. Download button will now display correctly when submissions have attached files."
 
   - task: "Split payment UI for admin approval"
     implemented: true
