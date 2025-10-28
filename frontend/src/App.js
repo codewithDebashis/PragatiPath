@@ -46,18 +46,23 @@ function AuthProvider({ children }) {
         mobile_number: mobileNumber, 
         password: password 
       });
-      const { access_token, user: userData } = response.data;
+      const { access_token, user: userData, must_change_password } = response.data;
       
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('must_change_password', must_change_password ? 'true' : 'false');
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       setUser(userData);
       
-      toast.success('Login successful!');
-      return true;
+      if (must_change_password) {
+        toast.warning('Please change your password to continue');
+      } else {
+        toast.success('Login successful!');
+      }
+      return { success: true, must_change_password };
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Login failed');
-      return false;
+      return { success: false, must_change_password: false };
     }
   };
 
