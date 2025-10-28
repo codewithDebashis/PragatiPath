@@ -367,6 +367,81 @@ async def login(user_login: MLMLogin):
         "must_change_password": user.get("must_change_password", False)
     }
 
+@api_router.post("/auth/change-password")
+async def change_password(
+    old_password: str = Form(...),
+    new_password: str = Form(...),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    """Member changes their own password"""
+    # Get user from database to verify old password
+    user = await db.mlm_users.find_one({"id": current_user.id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify old password
+    if not verify_password(old_password, user["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Validate new password
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    if new_password == old_password:
+        raise HTTPException(status_code=400, detail="New password must be different from current password")
+    
+    # Update password and clear must_change_password flag
+    hashed_password = get_password_hash(new_password)
+    await db.mlm_users.update_one(
+        {"id": current_user.id},
+        {"$set": {
+            "password": hashed_password,
+            "must_change_password": False
+        }}
+    )
+    
+    return {
+        "message": "Password changed successfully",
+        "must_change_password": False
+    }
+
+@api_router.post("/admin/reset-password/{user_id}")
+async def admin_reset_password(
+    user_id: str,
+    current_user: MLMUser = Depends(get_current_user)
+):
+    """Admin resets member's password to their mobile number"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can reset passwords")
+    
+    # Get target user
+    user = await db.mlm_users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Don't allow resetting admin passwords
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Cannot reset admin password")
+    
+    # Reset password to mobile number
+    mobile_number = user["mobile_number"]
+    hashed_password = get_password_hash(mobile_number)
+    
+    await db.mlm_users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "password": hashed_password,
+            "must_change_password": True
+        }}
+    )
+    
+    return {
+        "message": f"Password reset to mobile number for {user['full_name']}",
+        "mobile_number": mobile_number,
+        "default_password": mobile_number
+    }
+
+
 @api_router.post("/admin/mark-registration-paid/{user_id}")
 async def mark_registration_paid(user_id: str, current_user: MLMUser = Depends(get_current_user)):
     if current_user.role != "admin":
