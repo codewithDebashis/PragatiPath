@@ -2118,8 +2118,35 @@ function AdminAssignmentCard({ assignment }) {
 
 function AdminSubmissionCard({ submission, onUpdate }) {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [paymentMode, setPaymentMode] = useState('full'); // 'full' or 'split'
   const [paymentDestination, setPaymentDestination] = useState('wallet');
+  const [walletAmount, setWalletAmount] = useState(0);
+  const [contributionAmount, setContributionAmount] = useState(0);
   const [approving, setApproving] = useState(false);
+
+  const totalAmount = submission.assignment_amount || 0;
+
+  // Update split amounts when total changes
+  useEffect(() => {
+    if (paymentMode === 'split') {
+      setWalletAmount(totalAmount / 2);
+      setContributionAmount(totalAmount / 2);
+    }
+  }, [paymentMode, totalAmount]);
+
+  const handleDownload = () => {
+    if (submission.file_data && submission.file_name) {
+      const link = document.createElement('a');
+      link.href = submission.file_data;
+      link.download = submission.file_name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('File downloaded successfully');
+    } else {
+      toast.error('No file attached to this submission');
+    }
+  };
 
   const handleReject = async () => {
     try {
@@ -2135,14 +2162,33 @@ function AdminSubmissionCard({ submission, onUpdate }) {
   };
 
   const handleApprove = async () => {
+    if (paymentMode === 'split') {
+      const total = parseFloat(walletAmount) + parseFloat(contributionAmount);
+      if (Math.abs(total - totalAmount) > 0.01) {
+        toast.error(`Split amounts must equal total: ₹${totalAmount}`);
+        return;
+      }
+      if (walletAmount < 0 || contributionAmount < 0) {
+        toast.error('Amounts cannot be negative');
+        return;
+      }
+    }
+
     setApproving(true);
     try {
       const formData = new FormData();
       formData.append('action', 'approve');
-      formData.append('payment_destination', paymentDestination);
+      
+      if (paymentMode === 'full') {
+        formData.append('payment_destination', paymentDestination);
+      } else {
+        formData.append('payment_destination', 'split');
+        formData.append('wallet_amount', walletAmount.toString());
+        formData.append('contribution_amount', contributionAmount.toString());
+      }
       
       await axios.post(`${API}/submissions/${submission.id}/review`, formData);
-      toast.success(`Submission approved! Amount added to ${paymentDestination === 'wallet' ? 'wallet' : 'contribution'}`);
+      toast.success('Submission approved and payment credited!');
       setShowApproveDialog(false);
       onUpdate();
     } catch (error) {
@@ -2157,7 +2203,7 @@ function AdminSubmissionCard({ submission, onUpdate }) {
       <CardContent className="p-4">
         <div className="space-y-3">
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex-1">
               <h3 className="font-medium">{submission.assignment_title}</h3>
               <p className="text-sm text-gray-600">By: {submission.user_name} ({submission.user_mobile})</p>
               <p className="text-xs text-gray-500">Submitted: {new Date(submission.submitted_at).toLocaleString()}</p>
@@ -2168,6 +2214,20 @@ function AdminSubmissionCard({ submission, onUpdate }) {
           {submission.notes && (
             <div className="bg-gray-50 p-2 rounded">
               <p className="text-sm">{submission.notes}</p>
+            </div>
+          )}
+          
+          {/* Download Button */}
+          {submission.file_name && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-600" />
+                <span className="text-sm text-blue-800">{submission.file_name}</span>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleDownload}>
+                <Download className="w-4 h-4 mr-1" />
+                Download
+              </Button>
             </div>
           )}
           
@@ -2186,9 +2246,9 @@ function AdminSubmissionCard({ submission, onUpdate }) {
 
       {/* Approve Dialog with Payment Destination */}
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Approve Submission - Choose Payment Destination</DialogTitle>
+            <DialogTitle>Approve Submission - Payment Allocation</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -2196,68 +2256,144 @@ function AdminSubmissionCard({ submission, onUpdate }) {
                 Submission: {submission.assignment_title}
               </p>
               <p className="text-sm text-blue-700">
-                Amount: <span className="font-bold">₹{submission.assignment_amount}</span>
+                Total Amount: <span className="font-bold">₹{totalAmount}</span>
               </p>
               <p className="text-sm text-blue-700">
                 Member: {submission.user_name}
               </p>
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-base font-medium">Where should the amount be credited?</Label>
-              
-              <div className="space-y-2">
-                <div 
-                  onClick={() => setPaymentDestination('wallet')}
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    paymentDestination === 'wallet' 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      paymentDestination === 'wallet' ? 'border-green-500' : 'border-gray-300'
-                    }`}>
-                      {paymentDestination === 'wallet' && (
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">💰 Wallet (Current Balance)</p>
-                      <p className="text-sm text-gray-600">
-                        Amount will be added to withdrawable balance. Member can request withdrawal.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div 
-                  onClick={() => setPaymentDestination('contribution')}
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    paymentDestination === 'contribution' 
+            {/* Payment Mode Selection */}
+            <div className="space-y-2">
+              <Label className="text-base font-medium">Payment Mode:</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setPaymentMode('full')}
+                  className={`p-3 border-2 rounded-lg transition-all ${
+                    paymentMode === 'full' 
                       ? 'border-blue-500 bg-blue-50' 
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      paymentDestination === 'contribution' ? 'border-blue-500' : 'border-gray-300'
-                    }`}>
-                      {paymentDestination === 'contribution' && (
-                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                      )}
+                  <div className="font-medium">Full Amount</div>
+                  <div className="text-xs text-gray-600">To one destination</div>
+                </button>
+                <button
+                  onClick={() => setPaymentMode('split')}
+                  className={`p-3 border-2 rounded-lg transition-all ${
+                    paymentMode === 'split' 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">Split Amount</div>
+                  <div className="text-xs text-gray-600">Between wallet & contribution</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Full Payment Options */}
+            {paymentMode === 'full' && (
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Destination:</Label>
+                <div className="space-y-2">
+                  <div 
+                    onClick={() => setPaymentDestination('wallet')}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      paymentDestination === 'wallet' 
+                        ? 'border-green-500 bg-green-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        paymentDestination === 'wallet' ? 'border-green-500' : 'border-gray-300'
+                      }`}>
+                        {paymentDestination === 'wallet' && (
+                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">💰 Wallet - ₹{totalAmount}</p>
+                        <p className="text-sm text-gray-600">Withdrawable balance</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">🎯 My Contribution (Registration Fee)</p>
-                      <p className="text-sm text-gray-600">
-                        Amount will be added to registration fee contribution. Helps complete registration.
-                      </p>
+                  </div>
+
+                  <div 
+                    onClick={() => setPaymentDestination('contribution')}
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      paymentDestination === 'contribution' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        paymentDestination === 'contribution' ? 'border-blue-500' : 'border-gray-300'
+                      }`}>
+                        {paymentDestination === 'contribution' && (
+                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">🎯 My Contribution - ₹{totalAmount}</p>
+                        <p className="text-sm text-gray-600">Registration fee</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Split Payment Options */}
+            {paymentMode === 'split' && (
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Split Amount:</Label>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>💰 To Wallet</Label>
+                    <Input
+                      type="number"
+                      value={walletAmount}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setWalletAmount(val);
+                        setContributionAmount(totalAmount - val);
+                      }}
+                      step="0.01"
+                      min="0"
+                      max={totalAmount}
+                      className="text-lg font-semibold"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>🎯 To Contribution</Label>
+                    <Input
+                      type="number"
+                      value={contributionAmount}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setContributionAmount(val);
+                        setWalletAmount(totalAmount - val);
+                      }}
+                      step="0.01"
+                      min="0"
+                      max={totalAmount}
+                      className="text-lg font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-sm">
+                    Total: ₹{(parseFloat(walletAmount) + parseFloat(contributionAmount)).toFixed(2)} / ₹{totalAmount}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-4">
               <Button 
