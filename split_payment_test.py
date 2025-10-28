@@ -683,13 +683,13 @@ class SplitPaymentAPITester:
             print(f"   - Total Earnings: ₹{total_earnings}")
             
             # Expected calculations:
-            # Initial installment: ₹100
-            # Split payment: ₹200 wallet + ₹100 contribution = ₹300 total
-            # Contribution payment: ₹150 to contribution
-            # Wallet payment: ₹250 to wallet
-            # Total expected earnings: ₹100 + ₹300 + ₹150 + ₹250 = ₹800
+            # Initial installment: ₹100 (registration fee - NOT counted as earnings)
+            # Split payment: ₹200 wallet + ₹100 contribution = ₹300 total earnings
+            # Contribution payment: ₹150 to contribution = ₹150 earnings
+            # Wallet payment: ₹250 to wallet = ₹250 earnings
+            # Total expected earnings: ₹0 + ₹300 + ₹150 + ₹250 = ₹700
             
-            expected_total_earnings = 100 + 300 + 150 + 250  # ₹800
+            expected_total_earnings = 0 + 300 + 150 + 250  # ₹700
             
             print(f"   Expected Total Earnings: ₹{expected_total_earnings}")
             
