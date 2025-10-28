@@ -425,6 +425,54 @@ frontend:
         agent: "main"
         comment: "✅ IMPLEMENTED: AdminAssignmentCard now displays assigned employee information with proper styling. Frontend restarted to apply changes."
 
+  - task: "ForceChangePasswordDialog component"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created ForceChangePasswordDialog component that blocks dashboard access until password is changed. Validates old password, new password (min 6 chars), and confirmation. Calls /api/auth/change-password endpoint. Updates localStorage to clear must_change_password flag."
+
+  - task: "Password change enforcement on login"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated AppContent component to check must_change_password flag from localStorage. If true, shows ForceChangePasswordDialog and blocks dashboard access. Updated login function to store must_change_password from API response."
+
+  - task: "Admin reset password button"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added 'Reset Pass' button in AdminMemberCard actions. Calls /api/admin/reset-password/{user_id} endpoint. Shows success toast with the default password. Admin can reset any member's password to their mobile number."
+
+  - task: "Registration shows default password message"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated register function to display success toast with default password information. Message shows: 'Your default password is your mobile number: [number]. Please change it after first login.' Duration: 8 seconds."
+
   - task: "Withdrawal request button tooltip/message"
     implemented: true
     working: true
