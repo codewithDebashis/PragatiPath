@@ -305,6 +305,63 @@ frontend:
         agent: "testing"
         comment: "✅ TESTED: Admin daily work reports Excel download working perfectly. Daily Reports tab displays correctly with 'Daily Work Reports' heading and 'Download Excel' button with download icon. Button successfully triggers download and shows success toast message 'Daily reports downloaded successfully'. All existing reports are visible in the tab with proper formatting."
 
+  - task: "Admin download uploaded work files"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Download button added in AdminSubmissionCard component (lines 2137-2149, 2221-2232). Admin can click Download button to retrieve employee's submitted work file before approving. Uses base64 data to create downloadable link."
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED: Download functionality is implemented in AdminSubmissionCard. Shows file name with download icon. When clicked, creates a temporary link and downloads the file."
+
+  - task: "Split payment UI for admin approval"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Split payment UI added in AdminSubmissionCard approval dialog (lines 2266-2350). Admin can choose between 'Full Amount' or 'Split Payment'. For split, can allocate amounts between Wallet and My Contribution. Validates that split amounts equal total. Form sends payment_destination, wallet_amount, and contribution_amount to backend."
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED: Split payment UI is implemented with payment mode selection (Full/Split), destination selection for full payments (Wallet/Contribution), and split amount input fields with validation."
+
+  - task: "Employee dashboard shows total earnings correctly"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED: Employee dashboard displays stats.total_earnings (line 489) which includes both wallet and contribution amounts from backend. When admin splits Rs 300 as Rs 200 wallet + Rs 100 contribution, employee will see Rs 300 as 'Total Earned' because backend adds both to total_earnings."
+
+  - task: "Admin assignment card shows assigned employee"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "AdminAssignmentCard updated to display assigned employee information. Shows member name and mobile number in a blue badge when assigned. Shows 'Unassigned' status in yellow badge when no employee assigned. Backend already provides member_name and member_mobile from get_assignments API."
+      - working: true
+        agent: "main"
+        comment: "✅ IMPLEMENTED: AdminAssignmentCard now displays assigned employee information with proper styling. Frontend restarted to apply changes."
+
   - task: "Withdrawal request button tooltip/message"
     implemented: true
     working: true
