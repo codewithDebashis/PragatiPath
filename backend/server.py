@@ -785,6 +785,16 @@ async def get_dashboard_stats(current_user: MLMUser = Depends(get_current_user))
         settings = await db.mlm_settings.find_one({})
         admin_upi = settings.get("admin_upi", "admin@upi") if settings else "admin@upi"
         
+        # Get upline (referrer) information
+        upline_info = None
+        if current_user.referred_by:
+            upline = await db.mlm_users.find_one({"referral_code": current_user.referred_by})
+            if upline:
+                upline_info = {
+                    "name": upline.get("full_name"),
+                    "mobile": upline.get("mobile_number")
+                }
+        
         return {
             "current_balance": current_user.current_balance,
             "total_earnings": current_user.total_earnings,
@@ -796,7 +806,8 @@ async def get_dashboard_stats(current_user: MLMUser = Depends(get_current_user))
             "pending_submissions": pending_count,
             "daily_earnings": daily_earnings,
             "referral_code": current_user.referral_code,
-            "admin_upi": admin_upi
+            "admin_upi": admin_upi,
+            "upline": upline_info
         }
 
 @api_router.get("/transactions")
