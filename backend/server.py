@@ -858,10 +858,20 @@ async def get_referral_tree(
                 trees.append(tree)
         return trees
     else:
-        # Member sees their own tree
+        # Member sees their downline tree (children are level 1)
         user_data = await db.mlm_users.find_one({"id": current_user.id})
-        tree = await build_tree_node(user_data)
-        return [tree]
+        
+        # Get direct referrals only (these are Level 1 for the member)
+        direct_referrals = await db.mlm_users.find({
+            "referred_by": user_data["referral_code"]
+        }).to_list(None)
+        
+        trees = []
+        for referral in direct_referrals:
+            tree = await build_tree_node(referral, level=1, max_level=5)
+            trees.append(tree)
+        
+        return trees
 
 @api_router.get("/admin/users")
 async def get_all_users(current_user: MLMUser = Depends(get_current_user)):
