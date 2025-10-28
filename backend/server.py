@@ -1119,6 +1119,12 @@ async def get_all_submissions(current_user: MLMUser = Depends(get_current_user))
             parsed["assignment_title"] = assignment["title"]
             parsed["assignment_amount"] = assignment["amount"]
         
+        # Map submission file fields for frontend compatibility
+        if "submission_file_name" in parsed:
+            parsed["file_name"] = parsed["submission_file_name"]
+        if "submission_file_data" in parsed:
+            parsed["file_data"] = parsed["submission_file_data"]
+        
         result.append(parsed)
     
     return result
