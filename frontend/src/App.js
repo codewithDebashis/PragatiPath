@@ -643,14 +643,40 @@ function MemberDashboard() {
               </h3>
               {adSettings.advertisement_video_type === 'url' && adSettings.advertisement_video_url ? (
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2">
-                  <video 
-                    controls 
-                    className="w-full rounded-lg"
-                    style={{ maxHeight: '300px' }}
-                  >
-                    <source src={adSettings.advertisement_video_url} type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
+                  {(() => {
+                    const url = adSettings.advertisement_video_url;
+                    // Check if it's a YouTube URL
+                    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+                    const match = url.match(youtubeRegex);
+                    
+                    if (match && match[1]) {
+                      // YouTube video - use iframe with embed URL
+                      const videoId = match[1];
+                      return (
+                        <iframe
+                          className="w-full rounded-lg"
+                          style={{ height: '300px' }}
+                          src={`https://www.youtube.com/embed/${videoId}`}
+                          title="Advertisement Video"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        ></iframe>
+                      );
+                    } else {
+                      // Direct video URL - use video tag
+                      return (
+                        <video 
+                          controls 
+                          className="w-full rounded-lg"
+                          style={{ maxHeight: '300px' }}
+                        >
+                          <source src={url} />
+                          Your browser does not support the video tag.
+                        </video>
+                      );
+                    }
+                  })()}
                 </div>
               ) : adSettings.advertisement_video_type === 'file' && adSettings.advertisement_video_file ? (
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2">
