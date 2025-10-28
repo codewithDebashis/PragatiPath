@@ -84,6 +84,7 @@ class MLMWorkAssignment(BaseModel):
     title: str
     description: str
     amount: float
+    assigned_to: Optional[str] = None  # Member ID
     attachment_name: Optional[str] = None
     attachment_data: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
