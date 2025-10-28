@@ -589,6 +589,22 @@ function MemberDashboard() {
           </Card>
         )}
 
+        {/* Upline Info Card */}
+        {stats.upline && (
+          <Card className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Users className="w-10 h-10" />
+                <div className="flex-1">
+                  <h3 className="font-semibold mb-1">Your Upline (Referrer)</h3>
+                  <p className="text-lg font-bold">{stats.upline.name}</p>
+                  <p className="text-sm text-white/90">📞 {stats.upline.mobile}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 hidden md:grid">
