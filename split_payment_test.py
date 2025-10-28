@@ -774,7 +774,7 @@ class SplitPaymentAPITester:
         # Setup test environment first
         if not self.setup_test_environment():
             print("❌ Failed to setup test environment")
-            return False
+            return {}
         
         # Test sequence focusing on split payment functionality
         tests = [
