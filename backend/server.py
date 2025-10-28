@@ -1410,6 +1410,43 @@ async def remove_member(
     
     return {"message": "Member removed successfully", "removed_user_id": user_id}
 
+# Advertisement Management
+@api_router.post("/admin/advertisement")
+async def create_advertisement(
+    title: str = Form(...),
+    message: str = Form(...),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can create advertisements")
+    
+    ad = Advertisement(
+        title=title,
+        message=message,
+        active=True,
+        created_by=current_user.id
+    )
+    
+    await db.advertisements.insert_one(prepare_for_mongo(ad.dict()))
+    return {"message": "Advertisement created successfully", "id": ad.id}
+
+@api_router.get("/advertisements")
+async def get_advertisements(current_user: MLMUser = Depends(get_current_user)):
+    """Get all active advertisements - visible to all members"""
+    ads = await db.advertisements.find({"active": True}).sort("created_at", -1).to_list(None)
+    return [parse_from_mongo(ad) for ad in ads]
+
+@api_router.delete("/admin/advertisement/{ad_id}")
+async def delete_advertisement(
+    ad_id: str,
+    current_user: MLMUser = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can delete advertisements")
+    
+    await db.advertisements.delete_one({"id": ad_id})
+    return {"message": "Advertisement deleted successfully"}
+
 # Initialize admin user and settings
 @api_router.post("/init")
 async def initialize_system():
