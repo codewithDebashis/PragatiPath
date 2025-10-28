@@ -341,11 +341,22 @@ function MemberDashboard() {
   });
   const [activeTab, setActiveTab] = useState('work');
   const [advertisements, setAdvertisements] = useState([]);
+  const [adSettings, setAdSettings] = useState(null);
   const { user, logout } = useAuth();
 
   useEffect(() => {
     fetchDashboardData();
+    fetchAdSettings();
   }, []);
+
+  const fetchAdSettings = async () => {
+    try {
+      const response = await axios.get(`${API}/settings/public`);
+      setAdSettings(response.data);
+    } catch (error) {
+      console.error('Failed to fetch ad settings');
+    }
+  };
 
   const fetchDashboardData = async () => {
     // Fetch stats
