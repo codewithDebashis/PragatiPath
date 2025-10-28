@@ -496,8 +496,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Split payment UI for admin approval"
-    - "Employee dashboard shows total earnings correctly"
+    - "Default password as mobile number"
+    - "Change password API"
+    - "Admin reset password API"
+    - "ForceChangePasswordDialog component"
+    - "Password change enforcement on login"
+    - "Admin reset password button"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
