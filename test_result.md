@@ -274,11 +274,14 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Created POST /api/admin/reset-password/{user_id} endpoint. Admin can reset any member's password to their mobile number. Sets must_change_password = True. Cannot reset admin passwords."
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE TESTING COMPLETED: Admin reset password API working perfectly. 1) Admin successfully reset member's password after member had changed it to custom password, 2) Reset response includes 'default_password' field = mobile number, 3) Member can login with mobile number again after reset, 4) Login response shows 'must_change_password: true' after admin reset, 5) Admin restriction working - cannot reset admin passwords (returns 404/403 for non-existent or admin users). Admin reset MUST reset to mobile number and set must_change_password to True."
 
   - task: "Login returns must_change_password flag"
     implemented: true
