@@ -67,6 +67,9 @@ class MLMUser(BaseModel):
     total_referrals: int = 0
     can_withdraw: bool = False  # True when has 5+ direct referrals
     level: int = 1
+    
+    # Password management
+    must_change_password: bool = True  # Force password change on first login
 
 class MLMUserCreate(BaseModel):
     mobile_number: str
