@@ -259,11 +259,14 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Created POST /api/auth/change-password endpoint. Members can change password with old_password and new_password validation. Sets must_change_password = False after successful change."
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE TESTING COMPLETED: Change password API working perfectly. 1) Member successfully changed password from mobile number (default) to 'newpass123', 2) API response shows 'must_change_password: false' after successful change, 3) Member can logout and login with new password, 4) Login response shows 'must_change_password: false' after password change, 5) All validation working: incorrect old password rejected (400), short password (<6 chars) rejected (400), same password rejected (400). Password change MUST set must_change_password to False."
 
   - task: "Admin reset password API"
     implemented: true
