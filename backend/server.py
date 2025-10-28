@@ -1283,6 +1283,10 @@ async def update_settings(
     commission_l3: Optional[float] = Form(None),
     commission_l4: Optional[float] = Form(None),
     commission_l5: Optional[float] = Form(None),
+    advertisement_video_type: Optional[str] = Form(None),  # "url" or "file"
+    advertisement_video_url: Optional[str] = Form(None),
+    scrolling_text: Optional[str] = Form(None),
+    video_file: Optional[UploadFile] = File(None),
     current_user: MLMUser = Depends(get_current_user)
 ):
     if current_user.role != "admin":
@@ -1306,6 +1310,38 @@ async def update_settings(
         update_data["commission_l4"] = commission_l4
     if commission_l5 is not None:
         update_data["commission_l5"] = commission_l5
+    if scrolling_text is not None:
+        update_data["scrolling_text"] = scrolling_text
+    
+    # Handle video advertisement
+    if advertisement_video_type is not None:
+        update_data["advertisement_video_type"] = advertisement_video_type
+        
+        if advertisement_video_type == "url" and advertisement_video_url:
+            update_data["advertisement_video_url"] = advertisement_video_url
+            update_data["advertisement_video_file"] = None
+            update_data["advertisement_video_name"] = None
+        elif advertisement_video_type == "file" and video_file:
+            # Validate video file
+            allowed_extensions = ['.mp4', '.avi', '.mov', '.webm']
+            file_ext = os.path.splitext(video_file.filename)[1].lower()
+            
+            if file_ext not in allowed_extensions:
+                raise HTTPException(status_code=400, detail=f"Unsupported video format. Allowed: {', '.join(allowed_extensions)}")
+            
+            # Read and encode video file
+            video_content = await video_file.read()
+            
+            # Check file size (max 20MB)
+            max_size = 20 * 1024 * 1024  # 20MB in bytes
+            if len(video_content) > max_size:
+                raise HTTPException(status_code=400, detail="Video file too large. Maximum size is 20MB")
+            
+            video_base64 = base64.b64encode(video_content).decode('utf-8')
+            
+            update_data["advertisement_video_file"] = f"data:video/{file_ext[1:]};base64,{video_base64}"
+            update_data["advertisement_video_name"] = video_file.filename
+            update_data["advertisement_video_url"] = None
     
     await db.mlm_settings.update_one({}, {"$set": update_data}, upsert=True)
     
