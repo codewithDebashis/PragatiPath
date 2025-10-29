@@ -2671,14 +2671,39 @@ function AdminSubmissionCard({ submission, onUpdate }) {
             </div>
           )}
           
-          {/* Download Button */}
+          {/* Download Button with File Type Icon */}
           {submission.file_name && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-800">{submission.file_name}</span>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {(() => {
+                  const extension = submission.file_name.split('.').pop().toLowerCase();
+                  // Return appropriate icon based on file type
+                  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension)) {
+                    return <span className="text-2xl">🖼️</span>;
+                  } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension)) {
+                    return <span className="text-2xl">🎥</span>;
+                  } else if (['pdf'].includes(extension)) {
+                    return <span className="text-2xl">📄</span>;
+                  } else if (['doc', 'docx'].includes(extension)) {
+                    return <span className="text-2xl">📝</span>;
+                  } else if (['xls', 'xlsx', 'csv'].includes(extension)) {
+                    return <span className="text-2xl">📊</span>;
+                  } else if (['ppt', 'pptx'].includes(extension)) {
+                    return <span className="text-2xl">📽️</span>;
+                  } else if (['zip', 'rar'].includes(extension)) {
+                    return <span className="text-2xl">📦</span>;
+                  } else {
+                    return <FileText className="w-5 h-5 text-blue-600" />;
+                  }
+                })()}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-blue-800 block truncate">{submission.file_name}</span>
+                  <span className="text-xs text-blue-600">
+                    {submission.file_name.split('.').pop().toUpperCase()} File
+                  </span>
+                </div>
               </div>
-              <Button size="sm" variant="outline" onClick={handleDownload}>
+              <Button size="sm" variant="outline" onClick={handleDownload} className="ml-2 flex-shrink-0">
                 <Download className="w-4 h-4 mr-1" />
                 Download
               </Button>
