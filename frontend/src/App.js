@@ -2521,13 +2521,82 @@ function AdminSubmissionCard({ submission, onUpdate }) {
 
   const handleDownload = () => {
     if (submission.file_data && submission.file_name) {
-      const link = document.createElement('a');
-      link.href = submission.file_data;
-      link.download = submission.file_name;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success('File downloaded successfully');
+      try {
+        // Get file extension to determine MIME type
+        const extension = submission.file_name.split('.').pop().toLowerCase();
+        
+        // Map extensions to MIME types
+        const mimeTypes = {
+          // Images
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+          'bmp': 'image/bmp',
+          'svg': 'image/svg+xml',
+          
+          // Documents
+          'pdf': 'application/pdf',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          
+          // Spreadsheets
+          'xls': 'application/vnd.ms-excel',
+          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'csv': 'text/csv',
+          
+          // Presentations
+          'ppt': 'application/vnd.ms-powerpoint',
+          'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          
+          // Videos
+          'mp4': 'video/mp4',
+          'avi': 'video/x-msvideo',
+          'mov': 'video/quicktime',
+          'wmv': 'video/x-ms-wmv',
+          'flv': 'video/x-flv',
+          'webm': 'video/webm',
+          'mkv': 'video/x-matroska',
+          
+          // Audio
+          'mp3': 'audio/mpeg',
+          'wav': 'audio/wav',
+          'ogg': 'audio/ogg',
+          
+          // Archives
+          'zip': 'application/zip',
+          'rar': 'application/x-rar-compressed',
+          
+          // Text
+          'txt': 'text/plain',
+          'json': 'application/json',
+          'xml': 'application/xml'
+        };
+        
+        const mimeType = mimeTypes[extension] || 'application/octet-stream';
+        
+        // If file_data already has data: prefix, use it directly
+        let downloadData = submission.file_data;
+        
+        // If it doesn't have data: prefix, add it with correct MIME type
+        if (!downloadData.startsWith('data:')) {
+          downloadData = `data:${mimeType};base64,${downloadData}`;
+        }
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = downloadData;
+        link.download = submission.file_name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        
+        toast.success(`${submission.file_name} downloaded successfully`);
+      } catch (error) {
+        console.error('Download error:', error);
+        toast.error('Failed to download file. Please try again.');
+      }
     } else {
       toast.error('No file attached to this submission');
     }
