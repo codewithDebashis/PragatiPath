@@ -1954,21 +1954,6 @@ function CreateMemberDialog({ users, onMemberCreated }) {
   );
 }
 
-          <Button 
-            onClick={copyToClipboard}
-            variant="outline"
-            size="sm"
-            className="w-full"
-          >
-            {copied ? 'Copied!' : 'Copy Referral Link'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-
 // Force Change Password Dialog Component
 function ForceChangePasswordDialog({ open, onPasswordChanged }) {
   const [oldPassword, setOldPassword] = useState('');
