@@ -1912,7 +1912,7 @@ function CreateMemberDialog({ users, onMemberCreated }) {
                 <SelectValue placeholder="Select parent member (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No Parent (Root Level)</SelectItem>
+                <SelectItem value="none">No Parent (Root Level)</SelectItem>
                 {users.filter(u => u.role !== 'admin').map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.full_name} ({user.mobile_number})
