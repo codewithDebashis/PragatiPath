@@ -1827,7 +1827,7 @@ function CreateMemberDialog({ users, onMemberCreated }) {
       submitData.append('full_name', formData.full_name);
       submitData.append('mobile_number', formData.mobile_number);
       submitData.append('upi_address', formData.upi_address);
-      if (formData.parent_user_id) {
+      if (formData.parent_user_id && formData.parent_user_id !== 'none') {
         submitData.append('parent_user_id', formData.parent_user_id);
       }
 
