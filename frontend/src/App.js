@@ -2699,155 +2699,30 @@ function AdminSubmissionCard({ submission, onUpdate }) {
             <DialogTitle>Approve Submission - Payment Allocation</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800 font-medium mb-1">
                 Submission: {submission.assignment_title}
               </p>
-              <p className="text-sm text-blue-700">
-                Total Amount: <span className="font-bold">₹{totalAmount}</span>
+              <p className="text-lg text-blue-900 font-bold">
+                Amount: ₹{totalAmount}
               </p>
               <p className="text-sm text-blue-700">
                 Member: {submission.user_name}
               </p>
             </div>
 
-            {/* Payment Mode Selection */}
-            <div className="space-y-2">
-              <Label className="text-base font-medium">Payment Mode:</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setPaymentMode('full')}
-                  className={`p-3 border-2 rounded-lg transition-all ${
-                    paymentMode === 'full' 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="font-medium">Full Amount</div>
-                  <div className="text-xs text-gray-600">To one destination</div>
-                </button>
-                <button
-                  onClick={() => setPaymentMode('split')}
-                  className={`p-3 border-2 rounded-lg transition-all ${
-                    paymentMode === 'split' 
-                      ? 'border-purple-500 bg-purple-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="font-medium">Split Amount</div>
-                  <div className="text-xs text-gray-600">Between wallet & contribution</div>
-                </button>
-              </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-sm text-green-800">
+                ✅ This amount will be credited to member's <span className="font-bold">Wallet</span> (withdrawable balance)
+              </p>
             </div>
-
-            {/* Full Payment Options */}
-            {paymentMode === 'full' && (
-              <div className="space-y-3">
-                <Label className="text-base font-medium">Destination:</Label>
-                <div className="space-y-2">
-                  <div 
-                    onClick={() => setPaymentDestination('wallet')}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      paymentDestination === 'wallet' 
-                        ? 'border-green-500 bg-green-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        paymentDestination === 'wallet' ? 'border-green-500' : 'border-gray-300'
-                      }`}>
-                        {paymentDestination === 'wallet' && (
-                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">💰 Wallet - ₹{totalAmount}</p>
-                        <p className="text-sm text-gray-600">Withdrawable balance</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div 
-                    onClick={() => setPaymentDestination('contribution')}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      paymentDestination === 'contribution' 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        paymentDestination === 'contribution' ? 'border-blue-500' : 'border-gray-300'
-                      }`}>
-                        {paymentDestination === 'contribution' && (
-                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">🎯 My Contribution - ₹{totalAmount}</p>
-                        <p className="text-sm text-gray-600">Registration fee</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Split Payment Options */}
-            {paymentMode === 'split' && (
-              <div className="space-y-3">
-                <Label className="text-base font-medium">Split Amount:</Label>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>💰 To Wallet</Label>
-                    <Input
-                      type="number"
-                      value={walletAmount}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setWalletAmount(val);
-                        setContributionAmount(totalAmount - val);
-                      }}
-                      step="0.01"
-                      min="0"
-                      max={totalAmount}
-                      className="text-lg font-semibold"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>🎯 To Contribution</Label>
-                    <Input
-                      type="number"
-                      value={contributionAmount}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setContributionAmount(val);
-                        setWalletAmount(totalAmount - val);
-                      }}
-                      step="0.01"
-                      min="0"
-                      max={totalAmount}
-                      className="text-lg font-semibold"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-3 rounded">
-                  <p className="text-sm">
-                    Total: ₹{(parseFloat(walletAmount) + parseFloat(contributionAmount)).toFixed(2)} / ₹{totalAmount}
-                  </p>
-                </div>
-              </div>
-            )}
 
             <div className="flex gap-2 pt-4">
               <Button 
                 variant="outline" 
                 onClick={() => setShowApproveDialog(false)}
                 className="flex-1"
+                disabled={approving}
               >
                 Cancel
               </Button>
@@ -2856,7 +2731,7 @@ function AdminSubmissionCard({ submission, onUpdate }) {
                 disabled={approving}
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
-                {approving ? 'Approving...' : 'Approve & Credit'}
+                {approving ? 'Approving...' : `Approve ₹${totalAmount}`}
               </Button>
             </div>
           </div>
@@ -2867,7 +2742,21 @@ function AdminSubmissionCard({ submission, onUpdate }) {
 }
 
 function AdminWithdrawalCard({ request, onUpdate }) {
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
+  const [paymentMode, setPaymentMode] = useState('full'); // 'full' or 'split'
+  const [withdrawalAmount, setWithdrawalAmount] = useState(request.amount);
+  const [contributionAmount, setContributionAmount] = useState(0);
+  const [processing, setProcessing] = useState(false);
+
+  const totalAmount = request.amount;
+
   const handleProcess = async (action) => {
+    if (action === 'approve') {
+      // Show split dialog instead of direct approval
+      setShowSplitDialog(true);
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append('action', action);
@@ -2877,6 +2766,43 @@ function AdminWithdrawalCard({ request, onUpdate }) {
       onUpdate();
     } catch (error) {
       toast.error('Failed to process withdrawal');
+    }
+  };
+
+  const handleApproveWithSplit = async () => {
+    if (paymentMode === 'split') {
+      const total = parseFloat(withdrawalAmount) + parseFloat(contributionAmount);
+      if (Math.abs(total - totalAmount) > 0.01) {
+        toast.error(`Split amounts must equal total: ₹${totalAmount}`);
+        return;
+      }
+      if (withdrawalAmount < 0 || contributionAmount < 0) {
+        toast.error('Amounts cannot be negative');
+        return;
+      }
+    }
+
+    setProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('action', 'approve');
+      
+      if (paymentMode === 'full') {
+        formData.append('payment_destination', 'withdrawal');
+      } else {
+        formData.append('payment_destination', 'split');
+        formData.append('withdrawal_amount', withdrawalAmount.toString());
+        formData.append('contribution_amount', contributionAmount.toString());
+      }
+      
+      await axios.post(`${API}/withdrawal/${request.id}/process`, formData);
+      toast.success('Withdrawal approved!');
+      setShowSplitDialog(false);
+      onUpdate();
+    } catch (error) {
+      toast.error('Failed to approve withdrawal');
+    } finally {
+      setProcessing(false);
     }
   };
 
