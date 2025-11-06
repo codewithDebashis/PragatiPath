@@ -1843,7 +1843,7 @@ function CreateMemberDialog({ users, onMemberCreated }) {
         full_name: '',
         mobile_number: '',
         upi_address: '',
-        parent_user_id: ''
+        parent_user_id: 'none'
       });
       setOpen(false);
       onMemberCreated();
