@@ -2503,21 +2503,9 @@ function AdminAssignmentCard({ assignment }) {
 
 function AdminSubmissionCard({ submission, onUpdate }) {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [paymentMode, setPaymentMode] = useState('full'); // 'full' or 'split'
-  const [paymentDestination, setPaymentDestination] = useState('wallet');
-  const [walletAmount, setWalletAmount] = useState(0);
-  const [contributionAmount, setContributionAmount] = useState(0);
   const [approving, setApproving] = useState(false);
 
   const totalAmount = submission.assignment_amount || 0;
-
-  // Update split amounts when total changes
-  useEffect(() => {
-    if (paymentMode === 'split') {
-      setWalletAmount(totalAmount / 2);
-      setContributionAmount(totalAmount / 2);
-    }
-  }, [paymentMode, totalAmount]);
 
   const handleDownload = () => {
     if (submission.file_data && submission.file_name) {
@@ -2616,33 +2604,14 @@ function AdminSubmissionCard({ submission, onUpdate }) {
   };
 
   const handleApprove = async () => {
-    if (paymentMode === 'split') {
-      const total = parseFloat(walletAmount) + parseFloat(contributionAmount);
-      if (Math.abs(total - totalAmount) > 0.01) {
-        toast.error(`Split amounts must equal total: ₹${totalAmount}`);
-        return;
-      }
-      if (walletAmount < 0 || contributionAmount < 0) {
-        toast.error('Amounts cannot be negative');
-        return;
-      }
-    }
-
     setApproving(true);
     try {
       const formData = new FormData();
       formData.append('action', 'approve');
-      
-      if (paymentMode === 'full') {
-        formData.append('payment_destination', paymentDestination);
-      } else {
-        formData.append('payment_destination', 'split');
-        formData.append('wallet_amount', walletAmount.toString());
-        formData.append('contribution_amount', contributionAmount.toString());
-      }
+      formData.append('payment_destination', 'wallet'); // Always to wallet
       
       await axios.post(`${API}/submissions/${submission.id}/review`, formData);
-      toast.success('Submission approved and payment credited!');
+      toast.success('Submission approved and amount credited to wallet!');
       setShowApproveDialog(false);
       onUpdate();
     } catch (error) {
