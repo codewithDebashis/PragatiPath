@@ -1059,6 +1059,7 @@ function AdminDashboard() {
           <TabsContent value="users" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Member Management</h2>
+              <CreateMemberDialog users={users} onMemberCreated={fetchAdminData} />
             </div>
             {loading.users ? (
               <div className="flex justify-center py-8">
