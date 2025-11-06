@@ -869,6 +869,9 @@ async def get_withdrawal_requests(current_user: MLMUser = Depends(get_current_us
 async def process_withdrawal(
     withdrawal_id: str,
     action: str = Form(...),  # "approve", "reject", "mark_paid"
+    payment_destination: Optional[str] = Form(None),  # "withdrawal" or "split"
+    withdrawal_amount: Optional[float] = Form(None),
+    contribution_amount: Optional[float] = Form(None),
     comments: Optional[str] = Form(None),
     current_user: MLMUser = Depends(get_current_user)
 ):
@@ -880,15 +883,45 @@ async def process_withdrawal(
         raise HTTPException(status_code=404, detail="Withdrawal request not found")
     
     if action == "approve":
-        await db.withdrawal_requests.update_one(
-            {"id": withdrawal_id},
-            {"$set": {
-                "status": "approved",
-                "processed_at": datetime.now(timezone.utc).isoformat(),
-                "processed_by": current_user.id,
-                "admin_comments": comments
-            }}
-        )
+        # Handle split payment during approval
+        if payment_destination == "split" and withdrawal_amount is not None and contribution_amount is not None:
+            # Validate split amounts
+            total = withdrawal_amount + contribution_amount
+            if abs(total - withdrawal["amount"]) > 0.01:
+                raise HTTPException(status_code=400, detail="Split amounts must equal withdrawal amount")
+            
+            # Update withdrawal request with split details
+            await db.withdrawal_requests.update_one(
+                {"id": withdrawal_id},
+                {"$set": {
+                    "status": "approved",
+                    "processed_at": datetime.now(timezone.utc).isoformat(),
+                    "processed_by": current_user.id,
+                    "admin_comments": comments,
+                    "payment_split": True,
+                    "actual_withdrawal": withdrawal_amount,
+                    "contribution_deduction": contribution_amount
+                }}
+            )
+            
+            # Add contribution amount to total_installments_paid
+            if contribution_amount > 0:
+                await db.mlm_users.update_one(
+                    {"id": withdrawal["user_id"]},
+                    {"$inc": {"total_installments_paid": contribution_amount}}
+                )
+        else:
+            # Full withdrawal approval
+            await db.withdrawal_requests.update_one(
+                {"id": withdrawal_id},
+                {"$set": {
+                    "status": "approved",
+                    "processed_at": datetime.now(timezone.utc).isoformat(),
+                    "processed_by": current_user.id,
+                    "admin_comments": comments,
+                    "payment_split": False
+                }}
+            )
     
     elif action == "reject":
         # Return money to user balance
@@ -908,6 +941,9 @@ async def process_withdrawal(
         )
     
     elif action == "mark_paid":
+        # Get actual withdrawal amount (could be less than requested if split)
+        actual_amount = withdrawal.get("actual_withdrawal", withdrawal["amount"])
+        
         await db.withdrawal_requests.update_one(
             {"id": withdrawal_id},
             {"$set": {
@@ -917,20 +953,22 @@ async def process_withdrawal(
             }}
         )
         
-        # Record transaction
+        # Record transaction for actual withdrawal amount
         transaction = Transaction(
             user_id=withdrawal["user_id"],
             type="withdrawal",
-            amount=-withdrawal["amount"],
-            description=f"Withdrawal to UPI: {withdrawal['upi_address']}",
+            amount=-actual_amount,
+            description=f"Withdrawal to UPI: {withdrawal['upi_address']}" + 
+                       (f" (Split: ₹{actual_amount} withdrawn, ₹{withdrawal.get('contribution_deduction', 0)} to contribution)" 
+                        if withdrawal.get("payment_split") else ""),
             reference_id=withdrawal_id
         )
         await db.transactions.insert_one(prepare_for_mongo(transaction.dict()))
         
-        # Update user's total withdrawn
+        # Update user's total withdrawn with actual amount
         await db.mlm_users.update_one(
             {"id": withdrawal["user_id"]},
-            {"$inc": {"total_withdrawn": withdrawal["amount"]}}
+            {"$inc": {"total_withdrawn": actual_amount}}
         )
     
     return {"message": f"Withdrawal {action}d successfully"}
