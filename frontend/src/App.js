@@ -1805,7 +1805,7 @@ function CreateMemberDialog({ users, onMemberCreated }) {
     full_name: '',
     mobile_number: '',
     upi_address: '',
-    parent_user_id: ''
+    parent_user_id: 'none'  // Default to 'none' instead of empty string
   });
   const [creating, setCreating] = useState(false);
 
