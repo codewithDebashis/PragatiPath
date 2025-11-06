@@ -1352,6 +1352,46 @@ function MemberAssignmentCard({ assignment, onSubmit }) {
     }
   };
 
+  const postToWhatsAppStatus = async () => {
+    try {
+      // First download the image
+      const response = await axios.get(`${API}/assignments/${assignment.id}/attachment`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', assignment.attachment_name || 'whatsapp_status_image');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      // Wait a bit for download to start
+      setTimeout(() => {
+        // Open WhatsApp
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // On mobile, open WhatsApp app
+          window.location.href = 'whatsapp://send';
+        } else {
+          // On desktop, open WhatsApp Web
+          window.open('https://web.whatsapp.com/', '_blank');
+        }
+        
+        // Show instructions
+        toast.success(
+          '✅ Image downloaded! Now:\n1. Open WhatsApp Status\n2. Select the downloaded image\n3. Post to your Status\n4. Return here and click "Submit Work"',
+          { duration: 10000 }
+        );
+      }, 1000);
+      
+    } catch (error) {
+      toast.error('Failed to download image for WhatsApp');
+    }
+  };
+
   const isOverdue = new Date(assignment.deadline) < new Date();
   const hasSubmitted = assignment.has_submitted;
   const submission = assignment.user_submission;
