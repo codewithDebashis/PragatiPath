@@ -1786,6 +1786,164 @@ function ReferralLinkCard({ referralCode }) {
         <div className="text-center space-y-2">
           <p className="text-sm text-gray-600">Your Referral Code</p>
           <p className="text-xl font-bold text-blue-600">{referralCode}</p>
+
+
+// Create Member Dialog Component
+function CreateMemberDialog({ users, onMemberCreated }) {
+  const [open, setOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    mobile_number: '',
+    upi_address: '',
+    parent_user_id: ''
+  });
+  const [creating, setCreating] = useState(false);
+
+  const handleSubmit = async () => {
+    // Validation
+    if (!formData.full_name || !formData.mobile_number || !formData.upi_address) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    if (formData.mobile_number.length !== 10 || !/^\d+$/.test(formData.mobile_number)) {
+      toast.error('Please enter a valid 10-digit mobile number');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const submitData = new FormData();
+      submitData.append('full_name', formData.full_name);
+      submitData.append('mobile_number', formData.mobile_number);
+      submitData.append('upi_address', formData.upi_address);
+      if (formData.parent_user_id) {
+        submitData.append('parent_user_id', formData.parent_user_id);
+      }
+
+      const response = await axios.post(`${API}/admin/create-member`, submitData);
+      
+      toast.success(
+        `Member created successfully! Default password: ${response.data.default_password}`,
+        { duration: 8000 }
+      );
+      
+      // Reset form
+      setFormData({
+        full_name: '',
+        mobile_number: '',
+        upi_address: '',
+        parent_user_id: ''
+      });
+      setOpen(false);
+      onMemberCreated();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to create member');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="bg-green-600 hover:bg-green-700">
+          <UserPlus className="w-4 h-4 mr-2" />
+          Add New Member
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create New Member</DialogTitle>
+          <p className="text-sm text-gray-600">Add a member and place them under any existing member</p>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="full_name">Full Name *</Label>
+            <Input
+              id="full_name"
+              placeholder="Enter full name"
+              value={formData.full_name}
+              onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mobile_number">Mobile Number *</Label>
+            <Input
+              id="mobile_number"
+              placeholder="Enter 10-digit mobile number"
+              value={formData.mobile_number}
+              onChange={(e) => setFormData({...formData, mobile_number: e.target.value})}
+              maxLength={10}
+            />
+            <p className="text-xs text-gray-500">
+              This will be used as username and default password
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="upi_address">UPI Address *</Label>
+            <Input
+              id="upi_address"
+              placeholder="user@paytm or user@upi"
+              value={formData.upi_address}
+              onChange={(e) => setFormData({...formData, upi_address: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="parent_user_id">Place Under (Parent Member)</Label>
+            <Select 
+              value={formData.parent_user_id} 
+              onValueChange={(value) => setFormData({...formData, parent_user_id: value})}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select parent member (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No Parent (Root Level)</SelectItem>
+                {users.filter(u => u.role !== 'admin').map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name} ({user.mobile_number})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">
+              Member will be placed under selected parent in MLM hierarchy
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-blue-800">
+              ℹ️ The new member will receive their mobile number as default password and must change it on first login.
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setOpen(false)}
+              className="flex-1"
+              disabled={creating}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmit}
+              disabled={creating}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              {creating ? 'Creating...' : 'Create Member'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
           <Button 
             onClick={copyToClipboard}
             variant="outline"
