@@ -2809,8 +2809,8 @@ function AdminWithdrawalCard({ request, onUpdate }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex justify-between items-center">
-          <div>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
             <h3 className="font-medium">{request.user_name}</h3>
             <p className="text-sm text-gray-600">{request.user_mobile}</p>
             <p className="text-sm text-gray-600">UPI: {request.upi_address}</p>
@@ -2827,8 +2827,8 @@ function AdminWithdrawalCard({ request, onUpdate }) {
               {request.status}
             </Badge>
             {request.status === 'pending' && (
-              <div className="space-x-2">
-                <Button size="sm" onClick={() => handleProcess('approve')}>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleProcess('approve')} className="bg-green-600 hover:bg-green-700">
                   Approve
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleProcess('reject')}>
@@ -2844,6 +2844,144 @@ function AdminWithdrawalCard({ request, onUpdate }) {
           </div>
         </div>
       </CardContent>
+
+      {/* Split Payment Dialog */}
+      <Dialog open={showSplitDialog} onOpenChange={setShowSplitDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Approve Withdrawal - ₹{totalAmount}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium">
+                Member: {request.user_name}
+              </p>
+              <p className="text-lg text-blue-900 font-bold">
+                Requested: ₹{totalAmount}
+              </p>
+            </div>
+
+            {/* Payment Mode Selection */}
+            <div className="space-y-2">
+              <Label className="text-base font-medium">Approve As:</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    setPaymentMode('full');
+                    setWithdrawalAmount(totalAmount);
+                    setContributionAmount(0);
+                  }}
+                  className={`p-3 border-2 rounded-lg transition-all ${
+                    paymentMode === 'full' 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">Full Withdrawal</div>
+                  <div className="text-xs text-gray-600">₹{totalAmount}</div>
+                </button>
+                <button
+                  onClick={() => {
+                    setPaymentMode('split');
+                    setWithdrawalAmount(totalAmount / 2);
+                    setContributionAmount(totalAmount / 2);
+                  }}
+                  className={`p-3 border-2 rounded-lg transition-all ${
+                    paymentMode === 'split' 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">Split Payment</div>
+                  <div className="text-xs text-gray-600">Partial + Fee</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Split Payment Options */}
+            {paymentMode === 'split' && (
+              <div className="space-y-3 border-t pt-3">
+                <Label className="text-base font-medium">Split Amounts:</Label>
+                
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>💸 Actual Withdrawal (to member's UPI)</Label>
+                    <Input
+                      type="number"
+                      value={withdrawalAmount}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setWithdrawalAmount(val);
+                        setContributionAmount(totalAmount - val);
+                      }}
+                      step="0.01"
+                      min="0"
+                      max={totalAmount}
+                      className="text-lg font-semibold"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>🎯 To My Contribution (registration fee)</Label>
+                    <Input
+                      type="number"
+                      value={contributionAmount}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setContributionAmount(val);
+                        setWithdrawalAmount(totalAmount - val);
+                      }}
+                      step="0.01"
+                      min="0"
+                      max={totalAmount}
+                      className="text-lg font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-sm font-medium">
+                    Total: ₹{(parseFloat(withdrawalAmount) + parseFloat(contributionAmount)).toFixed(2)} / ₹{totalAmount}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-800 font-medium mb-1">Approval Summary:</p>
+              {paymentMode === 'full' ? (
+                <p className="text-sm text-green-700">
+                  ✅ Full amount ₹{totalAmount} will be withdrawn to member's UPI
+                </p>
+              ) : (
+                <div className="text-sm text-green-700">
+                  <p>✅ Withdrawal: ₹{withdrawalAmount} to UPI</p>
+                  <p>✅ Contribution: ₹{contributionAmount} to registration fee</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowSplitDialog(false)}
+                className="flex-1"
+                disabled={processing}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleApproveWithSplit}
+                disabled={processing}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {processing ? 'Processing...' : 'Approve'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
