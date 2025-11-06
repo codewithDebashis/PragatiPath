@@ -477,6 +477,79 @@ async def mark_registration_paid(user_id: str, current_user: MLMUser = Depends(g
     
     return {"message": "Registration fee marked as paid"}
 
+
+@api_router.post("/admin/create-member")
+async def admin_create_member(
+    full_name: str = Form(...),
+    mobile_number: str = Form(...),
+    upi_address: str = Form(...),
+    parent_user_id: Optional[str] = Form(None),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    """Admin creates a new member and places them under a specified parent member"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can create members")
+    
+    # Check if mobile number already exists
+    existing = await db.mlm_users.find_one({"mobile_number": mobile_number})
+    if existing:
+        raise HTTPException(status_code=400, detail="Mobile number already registered")
+    
+    # Get parent member if specified
+    referrer = None
+    referral_code = None
+    
+    if parent_user_id:
+        referrer = await db.mlm_users.find_one({"id": parent_user_id})
+        if not referrer:
+            raise HTTPException(status_code=400, detail="Parent member not found")
+        referral_code = referrer["referral_code"]
+    
+    # Use mobile number as default password
+    default_password = mobile_number
+    hashed_password = get_password_hash(default_password)
+    
+    # Generate unique referral code for new member
+    new_referral_code = generate_referral_code()
+    while await db.mlm_users.find_one({"referral_code": new_referral_code}):
+        new_referral_code = generate_referral_code()
+    
+    # Create new member
+    user = MLMUser(
+        mobile_number=mobile_number,
+        full_name=full_name,
+        upi_address=upi_address,
+        referral_code=new_referral_code,
+        referred_by=referral_code,
+        must_change_password=True
+    )
+    
+    user_dict = prepare_for_mongo(user.dict())
+    user_dict["password"] = hashed_password
+    
+    await db.mlm_users.insert_one(user_dict)
+    
+    # Update parent's direct referrals if exists
+    if referrer:
+        await db.mlm_users.update_one(
+            {"id": referrer["id"]},
+            {
+                "$push": {"direct_referrals": user.id},
+                "$inc": {"total_referrals": 1}
+            }
+        )
+        await update_referral_eligibility(referrer["id"])
+    
+    return {
+        "message": "Member created successfully",
+        "user_id": user.id,
+        "referral_code": new_referral_code,
+        "mobile_number": mobile_number,
+        "default_password": default_password,
+        "parent": referrer["full_name"] if referrer else "None (Root Level)"
+    }
+
+
 @api_router.get("/assignments")
 async def get_assignments(current_user: MLMUser = Depends(get_current_user)):
     if current_user.role == "admin":
