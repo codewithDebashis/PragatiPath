@@ -1786,7 +1786,17 @@ function ReferralLinkCard({ referralCode }) {
         <div className="text-center space-y-2">
           <p className="text-sm text-gray-600">Your Referral Code</p>
           <p className="text-xl font-bold text-blue-600">{referralCode}</p>
-
+          <div className="space-y-3 pt-3">
+            <Button onClick={copyToClipboard} variant="outline" className="w-full">
+              {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+              {copied ? 'Copied!' : 'Copy Referral Link'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 // Create Member Dialog Component
 function CreateMemberDialog({ users, onMemberCreated }) {
