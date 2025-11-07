@@ -1162,22 +1162,49 @@ function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="users" className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <h2 className="text-xl font-semibold">Member Management</h2>
               <CreateMemberDialog users={users} onMemberCreated={fetchAdminData} />
             </div>
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search by name, mobile, or referral code..."
+                value={searchUsers}
+                onChange={(e) => {
+                  setSearchUsers(e.target.value);
+                  setCurrentPageUsers(1);
+                }}
+                className="pl-10"
+              />
+            </div>
+            
             {loading.users ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
               </div>
-            ) : users.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No members yet</p>
+            ) : paginatedUsers.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                {searchUsers ? 'No members found matching your search' : 'No members yet'}
+              </p>
             ) : (
-              <div className="grid gap-4">
-                {users.map((member) => (
-                  <AdminMemberCard key={member.id} member={member} settings={settings} onUpdate={fetchAdminData} />
-                ))}
-              </div>
+              <>
+                <div className="text-sm text-gray-600 mb-2">
+                  Showing {((currentPageUsers - 1) * itemsPerPage) + 1} - {Math.min(currentPageUsers * itemsPerPage, filterUsers.length)} of {filterUsers.length} members
+                </div>
+                <div className="grid gap-4">
+                  {paginatedUsers.map((member) => (
+                    <AdminMemberCard key={member.id} member={member} settings={settings} onUpdate={fetchAdminData} />
+                  ))}
+                </div>
+                <Pagination 
+                  currentPage={currentPageUsers} 
+                  totalPages={totalPagesUsers} 
+                  onPageChange={setCurrentPageUsers} 
+                />
+              </>
             )}
           </TabsContent>
 
