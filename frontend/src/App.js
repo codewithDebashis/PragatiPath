@@ -2458,6 +2458,49 @@ function AdminMemberCard({ member, settings, onUpdate }) {
         </DialogContent>
       </Dialog>
 
+
+      {/* Edit Member Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Member Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Full Name</Label>
+              <Input 
+                value={editData.full_name} 
+                onChange={(e) => setEditData({...editData, full_name: e.target.value})} 
+              />
+            </div>
+            <div>
+              <Label>Mobile Number</Label>
+              <Input 
+                value={editData.mobile_number} 
+                onChange={(e) => setEditData({...editData, mobile_number: e.target.value})} 
+                maxLength={10}
+              />
+              <p className="text-xs text-gray-500 mt-1">Note: This will become the new login username</p>
+            </div>
+            <div>
+              <Label>UPI Address</Label>
+              <Input 
+                value={editData.upi_address} 
+                onChange={(e) => setEditData({...editData, upi_address: e.target.value})} 
+                placeholder="user@paytm"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)} className="flex-1">Cancel</Button>
+              <Button onClick={editMember} disabled={editing} className="flex-1 bg-green-600 hover:bg-green-700">
+                {editing ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Remove Member Confirmation Dialog */}
       <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
         <DialogContent>
