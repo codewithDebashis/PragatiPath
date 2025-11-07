@@ -1257,18 +1257,45 @@ function AdminDashboard() {
 
           <TabsContent value="submissions" className="space-y-4">
             <h2 className="text-xl font-semibold">Work Submissions Review</h2>
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search by member name or assignment title..."
+                value={searchSubmissions}
+                onChange={(e) => {
+                  setSearchSubmissions(e.target.value);
+                  setCurrentPageSubmissions(1);
+                }}
+                className="pl-10"
+              />
+            </div>
+            
             {loading.submissions ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
               </div>
-            ) : submissions.filter(s => s.status === 'pending').length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No pending submissions</p>
+            ) : paginatedSubmissions.filter(s => s.status === 'pending').length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                {searchSubmissions ? 'No pending submissions found matching your search' : 'No pending submissions'}
+              </p>
             ) : (
-              <div className="grid gap-4">
-                {submissions.filter(s => s.status === 'pending').map((submission) => (
-                  <AdminSubmissionCard key={submission.id} submission={submission} onUpdate={fetchAdminData} />
-                ))}
-              </div>
+              <>
+                <div className="text-sm text-gray-600 mb-2">
+                  Showing {((currentPageSubmissions - 1) * itemsPerPage) + 1} - {Math.min(currentPageSubmissions * itemsPerPage, filterSubmissions.filter(s => s.status === 'pending').length)} of {filterSubmissions.filter(s => s.status === 'pending').length} submissions
+                </div>
+                <div className="grid gap-4">
+                  {paginatedSubmissions.filter(s => s.status === 'pending').map((submission) => (
+                    <AdminSubmissionCard key={submission.id} submission={submission} onUpdate={fetchAdminData} />
+                  ))}
+                </div>
+                <Pagination 
+                  currentPage={currentPageSubmissions} 
+                  totalPages={Math.ceil(filterSubmissions.filter(s => s.status === 'pending').length / itemsPerPage)} 
+                  onPageChange={setCurrentPageSubmissions} 
+                />
+              </>
             )}
           </TabsContent>
 
