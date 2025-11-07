@@ -1589,6 +1589,27 @@ function MemberAssignmentCard({ assignment, onSubmit }) {
               </DialogContent>
             </Dialog>
           )}
+          
+          {/* Clear messaging when Submit button is hidden */}
+          {hasSubmitted && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="text-sm font-medium text-green-800">Work Already Submitted</p>
+                <p className="text-xs text-green-600">Status: {submission?.status || 'Pending Review'}</p>
+              </div>
+            </div>
+          )}
+          
+          {isOverdue && !hasSubmitted && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Deadline Passed</p>
+                <p className="text-xs text-red-600">This assignment is overdue and can no longer be submitted</p>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
