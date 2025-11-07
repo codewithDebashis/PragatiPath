@@ -1305,14 +1305,24 @@ function AdminDashboard() {
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
               </div>
-            ) : withdrawalRequests.length === 0 ? (
+            ) : paginatedWithdrawals.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No withdrawal requests</p>
             ) : (
-              <div className="grid gap-4">
-                {withdrawalRequests.map((request) => (
-                  <AdminWithdrawalCard key={request.id} request={request} onUpdate={fetchAdminData} />
-                ))}
-              </div>
+              <>
+                <div className="text-sm text-gray-600 mb-2">
+                  Showing {((currentPageWithdrawals - 1) * itemsPerPage) + 1} - {Math.min(currentPageWithdrawals * itemsPerPage, withdrawalRequests.length)} of {withdrawalRequests.length} requests
+                </div>
+                <div className="grid gap-4">
+                  {paginatedWithdrawals.map((request) => (
+                    <AdminWithdrawalCard key={request.id} request={request} onUpdate={fetchAdminData} />
+                  ))}
+                </div>
+                <Pagination 
+                  currentPage={currentPageWithdrawals} 
+                  totalPages={totalPagesWithdrawals} 
+                  onPageChange={setCurrentPageWithdrawals} 
+                />
+              </>
             )}
           </TabsContent>
 
