@@ -2316,7 +2316,7 @@ function AdminMemberCard({ member, settings, onUpdate }) {
           )}
           
           {/* Member Actions */}
-          <div className="border-t pt-3 grid grid-cols-3 gap-2">
+          <div className="border-t pt-3 grid grid-cols-4 gap-2">
             <Button 
               variant="outline" 
               size="sm"
@@ -2324,7 +2324,16 @@ function AdminMemberCard({ member, settings, onUpdate }) {
               className="w-full"
             >
               <Eye className="w-4 h-4 mr-1" />
-              Credentials
+              View
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowEditDialog(true)}
+              className="w-full text-green-600 border-green-300 hover:bg-green-50"
+            >
+              <Edit className="w-4 h-4 mr-1" />
+              Edit
             </Button>
             <Button 
               variant="outline" 
@@ -2333,7 +2342,7 @@ function AdminMemberCard({ member, settings, onUpdate }) {
               className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
             >
               <Settings className="w-4 h-4 mr-1" />
-              Reset Pass
+              Reset
             </Button>
             <Button 
               variant="destructive" 
