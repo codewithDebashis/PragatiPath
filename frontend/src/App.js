@@ -1459,7 +1459,8 @@ function MemberAssignmentCard({ assignment, onSubmit }) {
           {!hasSubmitted && !isOverdue && (
             <Dialog open={showSubmissionDialog} onOpenChange={setShowSubmissionDialog}>
               <DialogTrigger asChild>
-                <Button className="w-full">
+                <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Upload className="w-4 h-4 mr-2" />
                   Submit Work
                 </Button>
               </DialogTrigger>
