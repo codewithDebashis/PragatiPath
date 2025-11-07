@@ -18,7 +18,7 @@ import { Toaster } from './components/ui/sonner';
 import { Calendar } from './components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
 import { format } from 'date-fns';
-import { Download, Eye, Clock, DollarSign, Users, FileText, CheckCircle, XCircle, Network, TreePine, CreditCard, Upload, Settings, ChevronDown, ChevronRight, UserPlus, Copy, Check } from 'lucide-react';
+import { Download, Eye, Clock, DollarSign, Users, FileText, CheckCircle, XCircle, Network, TreePine, CreditCard, Upload, Settings, ChevronDown, ChevronRight, UserPlus, Copy, Check, Menu, X, Search, Edit, Trash2, ChevronLeft, ChevronRight as ChevronRightIcon, AlertCircle } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
