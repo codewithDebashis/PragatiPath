@@ -672,6 +672,111 @@ async def create_assignment(
         
         return {"message": "Assignment created successfully", "id": assignment.id}
 
+
+@api_router.put("/assignments/{assignment_id}")
+async def update_assignment(
+    assignment_id: str,
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    amount: Optional[float] = Form(None),
+    deadline: Optional[str] = Form(None),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    """Update assignment details"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can update assignments")
+    
+    assignment = await db.mlm_assignments.find_one({"id": assignment_id})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    update_data = {}
+    if title:
+        update_data["title"] = title
+    if description:
+        update_data["description"] = description
+    if amount is not None:
+        update_data["amount"] = amount
+    if deadline:
+        update_data["deadline"] = datetime.fromisoformat(deadline.replace('Z', '+00:00')).isoformat()
+    
+    if update_data:
+        await db.mlm_assignments.update_one({"id": assignment_id}, {"$set": update_data})
+    
+    return {"message": "Assignment updated successfully"}
+
+@api_router.delete("/assignments/{assignment_id}")
+async def delete_assignment(
+    assignment_id: str,
+    current_user: MLMUser = Depends(get_current_user)
+):
+    """Delete assignment and related submissions"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can delete assignments")
+    
+    assignment = await db.mlm_assignments.find_one({"id": assignment_id})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    # Delete related submissions
+    await db.mlm_submissions.delete_many({"assignment_id": assignment_id})
+    
+    # Delete the assignment
+    await db.mlm_assignments.delete_one({"id": assignment_id})
+    
+    return {"message": "Assignment and related submissions deleted successfully"}
+
+@api_router.put("/users/{user_id}")
+async def update_user(
+    user_id: str,
+    full_name: Optional[str] = Form(None),
+    mobile_number: Optional[str] = Form(None),
+    upi_address: Optional[str] = Form(None),
+    current_user: MLMUser = Depends(get_current_user)
+):
+    """Update user details"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can update users")
+    
+    user = await db.mlm_users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = {}
+    if full_name:
+        update_data["full_name"] = full_name
+    if mobile_number:
+        # Check if new mobile number is already used
+        if mobile_number != user["mobile_number"]:
+            existing = await db.mlm_users.find_one({"mobile_number": mobile_number})
+            if existing:
+                raise HTTPException(status_code=400, detail="Mobile number already in use")
+        update_data["mobile_number"] = mobile_number
+    if upi_address:
+        update_data["upi_address"] = upi_address
+    
+    if update_data:
+        await db.mlm_users.update_one({"id": user_id}, {"$set": update_data})
+    
+    return {"message": "User updated successfully"}
+
+@api_router.delete("/submissions/{submission_id}")
+async def delete_submission(
+    submission_id: str,
+    current_user: MLMUser = Depends(get_current_user)
+):
+    """Delete a submission"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can delete submissions")
+    
+    submission = await db.mlm_submissions.find_one({"id": submission_id})
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    await db.mlm_submissions.delete_one({"id": submission_id})
+    
+    return {"message": "Submission deleted successfully"}
+
 @api_router.post("/assignments/{assignment_id}/submit")
 async def submit_assignment(
     assignment_id: str,
