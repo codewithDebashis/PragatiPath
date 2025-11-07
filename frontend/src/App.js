@@ -890,6 +890,20 @@ function AdminDashboard() {
     settings: true
   });
   const [activeTab, setActiveTab] = useState('users');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Search states
+  const [searchUsers, setSearchUsers] = useState('');
+  const [searchAssignments, setSearchAssignments] = useState('');
+  const [searchSubmissions, setSearchSubmissions] = useState('');
+  
+  // Pagination states
+  const [currentPageUsers, setCurrentPageUsers] = useState(1);
+  const [currentPageAssignments, setCurrentPageAssignments] = useState(1);
+  const [currentPageSubmissions, setCurrentPageSubmissions] = useState(1);
+  const [currentPageWithdrawals, setCurrentPageWithdrawals] = useState(1);
+  const itemsPerPage = 10;
+  
   const { user, logout } = useAuth();
 
   useEffect(() => {
