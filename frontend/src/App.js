@@ -1596,6 +1596,75 @@ function MemberAssignmentCard({ assignment, onSubmit }) {
                         <p className="text-lg font-medium text-gray-700 mb-2">
                           Drop your file here or click to browse
                         </p>
+
+
+// Pagination Component
+function Pagination({ currentPage, totalPages, onPageChange }) {
+  const pages = [];
+  const maxVisible = 5;
+  
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  
+  if (endPage - startPage < maxVisible - 1) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+  
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+  
+  if (totalPages <= 1) return null;
+  
+  return (
+    <div className="flex items-center justify-center gap-2 mt-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </Button>
+      
+      {startPage > 1 && (
+        <>
+          <Button variant="outline" size="sm" onClick={() => onPageChange(1)}>1</Button>
+          {startPage > 2 && <span className="px-2">...</span>}
+        </>
+      )}
+      
+      {pages.map(page => (
+        <Button
+          key={page}
+          variant={currentPage === page ? "default" : "outline"}
+          size="sm"
+          onClick={() => onPageChange(page)}
+          className={currentPage === page ? "bg-blue-600" : ""}
+        >
+          {page}
+        </Button>
+      ))}
+      
+      {endPage < totalPages && (
+        <>
+          {endPage < totalPages - 1 && <span className="px-2">...</span>}
+          <Button variant="outline" size="sm" onClick={() => onPageChange(totalPages)}>{totalPages}</Button>
+        </>
+      )}
+      
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+      >
+        <ChevronRightIcon className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+}
+
                         <p className="text-sm text-gray-500 mb-4">
                           Supports: Images, PDFs, Videos, Documents, Excel files
                         </p>
