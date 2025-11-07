@@ -1687,7 +1687,130 @@ function MemberAssignmentCard({ assignment, onSubmit }) {
                         <p className="text-lg font-medium text-gray-700 mb-2">
                           Drop your file here or click to browse
                         </p>
+                        <p className="text-sm text-gray-500 mb-4">
+                          Supports: Images, PDFs, Videos, Documents, Excel files
+                        </p>
+                        <Button type="button" variant="outline" size="sm">
+                          Choose File
+                        </Button>
+                        <input
+                          id="file-upload-input"
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileChange}
+                          accept="image/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                        />
+                      </div>
+                    ) : (
+                      <div className="border-2 border-green-300 bg-green-50 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{file.name}</p>
+                              <p className="text-sm text-gray-600">{formatFileSize(file.size)}</p>
+                              <div className="mt-2 flex items-center text-sm text-green-600">
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                File selected and ready to upload
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={removeFile}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <XCircle className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
+                  {/* Notes Section */}
+                  <div>
+                    <Label htmlFor="notes" className="text-base font-medium mb-2 block">
+                      Additional Notes <span className="text-gray-400 font-normal">(Optional)</span>
+                    </Label>
+                    <Textarea
+                      id="notes"
+                      placeholder="Add any comments or notes about your submission..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={4}
+                      className="resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Describe your work or add any relevant information
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-3 pt-4 border-t">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      onClick={() => {
+                        setShowSubmissionDialog(false);
+                        setFile(null);
+                        setNotes('');
+                      }}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleSubmit} 
+                      disabled={submitting || !file}
+                      className="bg-green-600 hover:bg-green-700 min-w-[120px]"
+                    >
+                      {submitting ? (
+                        <>
+                          <span className="animate-spin mr-2">⏳</span>
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Submit Work
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+          
+          {/* Clear messaging when Submit button is hidden */}
+          {hasSubmitted && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="text-sm font-medium text-green-800">Work Already Submitted</p>
+                <p className="text-xs text-green-600">Status: {submission?.status || 'Pending Review'}</p>
+              </div>
+            </div>
+          )}
+          
+          {isOverdue && !hasSubmitted && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Deadline Passed</p>
+                <p className="text-xs text-red-600">This assignment is overdue and can no longer be submitted</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 // Pagination Component
 function Pagination({ currentPage, totalPages, onPageChange }) {
