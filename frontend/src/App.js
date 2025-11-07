@@ -2149,10 +2149,17 @@ function AdminMemberCard({ member, settings, onUpdate }) {
   const [showInstallmentDialog, setShowInstallmentDialog] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [installmentNumber, setInstallmentNumber] = useState('');
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    full_name: member.full_name,
+    mobile_number: member.mobile_number,
+    upi_address: member.upi_address
+  });
 
   const registrationFee = settings?.registration_fee || 1000; // Default to 1000 if settings not loaded
 
@@ -2163,6 +2170,25 @@ function AdminMemberCard({ member, settings, onUpdate }) {
       onUpdate();
     } catch (error) {
       toast.error('Failed to update registration status');
+    }
+  };
+
+  const editMember = async () => {
+    setEditing(true);
+    try {
+      const formData = new FormData();
+      formData.append('full_name', editData.full_name);
+      formData.append('mobile_number', editData.mobile_number);
+      formData.append('upi_address', editData.upi_address);
+
+      await axios.put(`${API}/users/${member.id}`, formData);
+      toast.success('Member updated successfully');
+      setShowEditDialog(false);
+      onUpdate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update member');
+    } finally {
+      setEditing(false);
     }
   };
 
