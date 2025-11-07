@@ -1209,22 +1209,49 @@ function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="work" className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <h2 className="text-xl font-semibold">Work Assignment Management</h2>
               <CreateWorkDialog onWorkCreated={fetchAdminData} />
             </div>
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search assignments by title or description..."
+                value={searchAssignments}
+                onChange={(e) => {
+                  setSearchAssignments(e.target.value);
+                  setCurrentPageAssignments(1);
+                }}
+                className="pl-10"
+              />
+            </div>
+            
             {loading.assignments ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
               </div>
-            ) : assignments.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No assignments created yet</p>
+            ) : paginatedAssignments.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                {searchAssignments ? 'No assignments found matching your search' : 'No assignments created yet'}
+              </p>
             ) : (
-              <div className="grid gap-4">
-                {assignments.map((assignment) => (
-                  <AdminAssignmentCard key={assignment.id} assignment={assignment} />
-                ))}
-              </div>
+              <>
+                <div className="text-sm text-gray-600 mb-2">
+                  Showing {((currentPageAssignments - 1) * itemsPerPage) + 1} - {Math.min(currentPageAssignments * itemsPerPage, filterAssignments.length)} of {filterAssignments.length} assignments
+                </div>
+                <div className="grid gap-4">
+                  {paginatedAssignments.map((assignment) => (
+                    <AdminAssignmentCard key={assignment.id} assignment={assignment} onUpdate={fetchAdminData} />
+                  ))}
+                </div>
+                <Pagination 
+                  currentPage={currentPageAssignments} 
+                  totalPages={totalPagesAssignments} 
+                  onPageChange={setCurrentPageAssignments} 
+                />
+              </>
             )}
           </TabsContent>
 
