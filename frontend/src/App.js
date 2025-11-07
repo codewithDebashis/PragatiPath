@@ -2666,7 +2666,52 @@ function CreateWorkDialog({ onWorkCreated }) {
 }
 
 // Placeholder components for admin functions
-function AdminAssignmentCard({ assignment }) {
+function AdminAssignmentCard({ assignment, onUpdate }) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editData, setEditData] = useState({
+    title: assignment.title,
+    description: assignment.description,
+    amount: assignment.amount,
+    deadline: new Date(assignment.deadline)
+  });
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleEdit = async () => {
+    setEditing(true);
+    try {
+      const formData = new FormData();
+      formData.append('title', editData.title);
+      formData.append('description', editData.description);
+      formData.append('amount', editData.amount);
+      formData.append('deadline', editData.deadline.toISOString());
+
+      await axios.put(`${API}/assignments/${assignment.id}`, formData);
+      toast.success('Assignment updated successfully');
+      setShowEditDialog(false);
+      onUpdate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update assignment');
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await axios.delete(`${API}/assignments/${assignment.id}`);
+      toast.success('Assignment deleted successfully');
+      setShowDeleteDialog(false);
+      onUpdate();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete assignment');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Card>
       <CardContent className="p-4">
@@ -2700,9 +2745,74 @@ function AdminAssignmentCard({ assignment }) {
           <div className="text-right ml-4">
             <p className="font-bold text-green-600">₹{assignment.amount}</p>
             <Badge>{assignment.is_active ? 'Active' : 'Inactive'}</Badge>
+            <div className="flex gap-1 mt-2">
+              <Button size="sm" variant="outline" onClick={() => setShowEditDialog(true)}>
+                <Edit className="w-3 h-3" />
+              </Button>
+              <Button size="sm" variant="outline" className="text-red-600" onClick={() => setShowDeleteDialog(true)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Assignment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Title</Label>
+              <Input value={editData.title} onChange={(e) => setEditData({...editData, title: e.target.value})} />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={editData.description} onChange={(e) => setEditData({...editData, description: e.target.value})} />
+            </div>
+            <div>
+              <Label>Amount (₹)</Label>
+              <Input type="number" value={editData.amount} onChange={(e) => setEditData({...editData, amount: e.target.value})} />
+            </div>
+            <div>
+              <Label>Deadline</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start">
+                    <Clock className="mr-2 h-4 w-4" />
+                    {format(editData.deadline, 'PPP')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={editData.deadline} onSelect={(date) => setEditData({...editData, deadline: date})} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)} className="flex-1">Cancel</Button>
+              <Button onClick={handleEdit} disabled={editing} className="flex-1">{editing ? 'Saving...' : 'Save Changes'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Assignment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-600">Are you sure you want to delete "{assignment.title}"? This will also delete all related submissions.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="flex-1">Cancel</Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="flex-1">{deleting ? 'Deleting...' : 'Delete'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
