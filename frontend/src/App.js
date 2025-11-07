@@ -974,12 +974,53 @@ function AdminDashboard() {
 
   const isInitialLoading = loading.stats;
 
+  // Filter and pagination helpers
+  const filterUsers = users.filter(u => 
+    u.full_name?.toLowerCase().includes(searchUsers.toLowerCase()) ||
+    u.mobile_number?.includes(searchUsers) ||
+    u.referral_code?.toLowerCase().includes(searchUsers.toLowerCase())
+  );
+  
+  const filterAssignments = assignments.filter(a => 
+    a.title?.toLowerCase().includes(searchAssignments.toLowerCase()) ||
+    a.description?.toLowerCase().includes(searchAssignments.toLowerCase())
+  );
+  
+  const filterSubmissions = submissions.filter(s => 
+    s.user_name?.toLowerCase().includes(searchSubmissions.toLowerCase()) ||
+    s.assignment_title?.toLowerCase().includes(searchSubmissions.toLowerCase())
+  );
+
+  // Paginate data
+  const paginateData = (data, currentPage) => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return data.slice(startIndex, startIndex + itemsPerPage);
+  };
+
+  const paginatedUsers = paginateData(filterUsers, currentPageUsers);
+  const paginatedAssignments = paginateData(filterAssignments, currentPageAssignments);
+  const paginatedSubmissions = paginateData(filterSubmissions, currentPageSubmissions);
+  const paginatedWithdrawals = paginateData(withdrawalRequests, currentPageWithdrawals);
+
+  const totalPagesUsers = Math.ceil(filterUsers.length / itemsPerPage);
+  const totalPagesAssignments = Math.ceil(filterAssignments.length / itemsPerPage);
+  const totalPagesSubmissions = Math.ceil(filterSubmissions.length / itemsPerPage);
+  const totalPagesWithdrawals = Math.ceil(withdrawalRequests.length / itemsPerPage);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
-      {/* Fixed Header */}
+      {/* Fixed Header with Hamburger */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 md:px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-3 md:space-x-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
             <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center">
               <Network className="w-4 h-4 md:w-6 md:h-6 text-white" />
             </div>
@@ -989,13 +1030,63 @@ function AdminDashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-2 md:space-x-4">
-            <span className="text-xs md:text-sm text-gray-600">Welcome, {user?.full_name}</span>
+            <span className="text-xs md:text-sm text-gray-600 hidden sm:inline">Welcome, {user?.full_name}</span>
             <Button onClick={logout} variant="outline" size="sm" className="text-xs md:text-sm">
               Logout
             </Button>
           </div>
         </div>
       </header>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-200 shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } md:translate-x-0 md:hidden`}>
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-lg">Menu</h2>
+            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+        <nav className="p-4 space-y-2">
+          {[
+            { id: 'users', label: 'Members', icon: Users },
+            { id: 'assignments', label: 'Work Assignments', icon: FileText },
+            { id: 'submissions', label: 'Submissions', icon: CheckCircle },
+            { id: 'withdrawals', label: 'Withdrawals', icon: DollarSign },
+            { id: 'settings', label: 'Settings', icon: Settings }
+          ].map(item => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  activeTab === item.id 
+                    ? 'bg-blue-50 text-blue-600 font-medium' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
 
       {/* Initial Loading Spinner */}
       {isInitialLoading ? (
