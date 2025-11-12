@@ -488,13 +488,19 @@ function MemberDashboard() {
             </CardContent>
           </Card>
           
-          <Card className="bg-gradient-to-r from-green-500 to-emerald-600">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-6 h-6 text-white" />
-                <div>
-                  <div className="text-2xl font-bold text-white">₹{stats.current_balance || 0}</div>
-                  <div className="text-xs text-white/90">Account Balance</div>
+          <Card className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-600 text-white shadow-xl hover:shadow-2xl transition-all animate-pulse-glow">
+            <CardContent className="p-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 opacity-20">
+                <DollarSign className="w-24 h-24" />
+              </div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-float">
+                  <DollarSign className="w-7 h-7" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm opacity-90 font-medium">💰 Current Balance</p>
+                  <p className="text-3xl font-bold tracking-tight">₹{stats.current_balance || 0}</p>
+                  <p className="text-xs opacity-75 mt-1">Available for withdrawal</p>
                 </div>
               </div>
             </CardContent>
