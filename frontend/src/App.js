@@ -1024,28 +1024,28 @@ function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
       {/* Fixed Header with Hamburger */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 md:px-6 py-4 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 border-b border-white/20 px-4 md:px-6 py-4 shadow-2xl">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-3 md:space-x-4">
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden"
+              className="md:hidden text-white hover:bg-white/20"
             >
               <Menu className="w-5 h-5" />
             </Button>
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center animate-float">
               <Network className="w-4 h-4 md:w-6 md:h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg md:text-2xl font-bold text-gray-900">Admin Control Panel</h1>
-              <p className="text-xs md:text-sm text-gray-600 hidden md:block">Life Line's MLM Portal</p>
+              <h1 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg">Admin Control Panel</h1>
+              <p className="text-xs md:text-sm text-white/90 hidden md:block">Life Line's MLM Portal 💎</p>
             </div>
           </div>
           <div className="flex items-center space-x-2 md:space-x-4">
-            <span className="text-xs md:text-sm text-gray-600 hidden sm:inline">Welcome, {user?.full_name}</span>
-            <Button onClick={logout} variant="outline" size="sm" className="text-xs md:text-sm">
+            <span className="text-xs md:text-sm text-white/90 hidden sm:inline">👋 {user?.full_name}</span>
+            <Button onClick={logout} variant="outline" size="sm" className="text-xs md:text-sm bg-white/20 text-white border-white/30 hover:bg-white/30">
               Logout
             </Button>
           </div>
