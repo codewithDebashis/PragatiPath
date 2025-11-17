@@ -824,6 +824,18 @@ async def submit_assignment(
         file_path = os.path.join("uploads", unique_filename)
         full_path = os.path.join("/app/backend", file_path)
         
+
+
+@api_router.get("/uploads/{file_path:path}")
+async def serve_upload(file_path: str):
+    """Serve uploaded files"""
+    full_path = os.path.join("/app/backend/uploads", file_path)
+    
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(full_path)
+
         # Save file to uploads directory
         with open(full_path, "wb") as buffer:
             content = await file.read()
