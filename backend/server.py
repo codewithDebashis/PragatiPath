@@ -816,9 +816,19 @@ async def submit_assignment(
         if file_ext not in allowed_extensions:
             raise HTTPException(status_code=400, detail=f"File type {file_ext} not supported. Allowed types: images, PDF, Office files, videos")
         
-        file_content = await file.read()
+        # Create unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_filename = f"{current_user.id}_{timestamp}_{file.filename}"
+        file_path = os.path.join("uploads", unique_filename)
+        full_path = os.path.join("/app/backend", file_path)
+        
+        # Save file to uploads directory
+        with open(full_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
         submission_data["submission_file_name"] = file.filename
-        submission_data["submission_file_data"] = base64.b64encode(file_content).decode('utf-8')
+        submission_data["submission_file_path"] = file_path  # Store relative path
     
     submission = MLMWorkSubmission(**submission_data)
     await db.mlm_submissions.insert_one(prepare_for_mongo(submission.dict()))
