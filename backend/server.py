@@ -1452,7 +1452,13 @@ async def get_all_submissions(current_user: MLMUser = Depends(get_current_user))
         # Map submission file fields for frontend compatibility
         if "submission_file_name" in parsed:
             parsed["file_name"] = parsed["submission_file_name"]
-        if "submission_file_data" in parsed:
+        
+        # For new file system (file path based)
+        if "submission_file_path" in parsed and parsed["submission_file_path"]:
+            parsed["file_path"] = parsed["submission_file_path"]
+            parsed["file_url"] = f"/api/uploads/{parsed['submission_file_path']}"
+        # For old base64 system (backward compatibility)
+        elif "submission_file_data" in parsed and parsed["submission_file_data"]:
             parsed["file_data"] = parsed["submission_file_data"]
         
         result.append(parsed)
