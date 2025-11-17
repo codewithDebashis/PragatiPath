@@ -4233,6 +4233,7 @@ function AppContent() {
   if (!user) {
     return <LoginRegister />;
   }
+  
 
   // Show force change password dialog if required
   if (mustChangePassword) {
