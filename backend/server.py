@@ -100,7 +100,8 @@ class MLMWorkSubmission(BaseModel):
     assignment_id: str
     user_id: str
     submission_file_name: Optional[str] = None
-    submission_file_data: Optional[str] = None
+    submission_file_path: Optional[str] = None  # Path to file in uploads directory
+    submission_file_data: Optional[str] = None  # Deprecated, keeping for backward compatibility
     notes: Optional[str] = None
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "pending"  # "pending", "approved", "rejected"
