@@ -1,11 +1,13 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../../src/auth';
 import { colors } from '../../src/theme';
-import { View, ActivityIndicator } from 'react-native';
+import { useUnreadCount } from '../../src/useUnreadCount';
 
 export default function ParentLayout() {
   const { user, loading } = useAuth();
+  const { count } = useUnreadCount();
   if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View>;
   if (!user) return <Redirect href="/login" />;
   if (user.role === 'admin') return <Redirect href="/(admin)/dashboard" />;
@@ -22,8 +24,32 @@ export default function ParentLayout() {
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} /> }} />
       <Tabs.Screen name="payment" options={{ title: 'Shop', tabBarIcon: ({ color, size }) => <Ionicons name="cart" color={color} size={size} /> }} />
-      <Tabs.Screen name="inbox" options={{ title: 'Inbox', tabBarIcon: ({ color, size }) => <Ionicons name="mail" color={color} size={size} /> }} />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          title: 'Inbox',
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <Ionicons name="mail" color={color} size={size} />
+              {count > 0 && (
+                <View style={styles.badge} testID="inbox-tab-badge">
+                  <Text style={styles.badgeTxt}>{count > 99 ? '99+' : count}</Text>
+                </View>
+              )}
+            </View>
+          ),
+        }}
+      />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} /> }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    position: 'absolute', top: -4, right: -8,
+    backgroundColor: colors.error, borderRadius: 10, paddingHorizontal: 5,
+    minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center',
+  },
+  badgeTxt: { color: '#fff', fontSize: 10, fontWeight: '800' },
+});

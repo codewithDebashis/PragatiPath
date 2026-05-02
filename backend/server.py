@@ -183,6 +183,14 @@ class TemplateIn(BaseModel):
     template: str
 
 
+class AdminMessageIn(BaseModel):
+    title: str
+    body: str
+    image_base64: Optional[str] = None
+    recipient: Literal["all", "user"] = "all"
+    user_id: Optional[str] = None
+
+
 class ItemIn(BaseModel):
     name: str
     description: Optional[str] = None
@@ -225,6 +233,25 @@ async def register(body: RegisterIn):
     await db.users.insert_one(doc)
     # auto-create the first child record
     await db.children.insert_one(child_doc(user_id, body.child_name, body.child_age, body.child_class))
+    # send a welcome message to inbox so the parent can always refer back to credentials
+    welcome_text = (
+        f"Welcome to Pragati Path! Your account has been created.\n\n"
+        f"User ID: {user_id_code}\n"
+        f"Email: {email}\n"
+        f"Password: {body.password}\n\n"
+        f"Please save these credentials securely. Pragati Path is designed for Winners — "
+        f"every child is a winner!"
+    )
+    await db.notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "title": "🎉 Account Created",
+        "body": welcome_text,
+        "type": "enrollment",
+        "image_base64": None,
+        "read": False,
+        "created_at": now_iso(),
+    })
     token = create_token(user_id, email, "parent")
     return {"token": token, "user": clean_user(doc)}
 
@@ -568,6 +595,34 @@ async def read_notif(notif_id: str, user: dict = Depends(get_current_user)):
         {"id": notif_id, "user_id": user["id"]}, {"$set": {"read": True}}
     )
     return {"ok": True}
+
+
+@api_router.post("/admin/notifications")
+async def admin_send(body: AdminMessageIn, admin: dict = Depends(require_admin)):
+    if body.recipient == "user":
+        if not body.user_id:
+            raise HTTPException(status_code=400, detail="user_id required for user recipient")
+        target = await db.users.find_one({"id": body.user_id, "role": "parent"}, {"_id": 0})
+        if not target:
+            raise HTTPException(status_code=404, detail="Parent not found")
+        target_ids = [body.user_id]
+    else:
+        parents = await db.users.find({"role": "parent"}, {"_id": 0, "id": 1}).to_list(10000)
+        target_ids = [p["id"] for p in parents]
+    if not target_ids:
+        return {"sent": 0}
+    docs = [{
+        "id": str(uuid.uuid4()),
+        "user_id": uid,
+        "title": body.title,
+        "body": body.body,
+        "image_base64": body.image_base64,
+        "type": "admin",
+        "read": False,
+        "created_at": now_iso(),
+    } for uid in target_ids]
+    await db.notifications.insert_many(docs)
+    return {"sent": len(target_ids)}
 
 
 # ---------------- Attendance ----------------

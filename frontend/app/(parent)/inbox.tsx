@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/api';
 import { colors, radii, shadow } from '../../src/theme';
 
-type Notif = { id: string; title: string; body: string; type: string; read: boolean; created_at: string };
+type Notif = { id: string; title: string; body: string; type: string; read: boolean; created_at: string; image_base64?: string };
 
 export default function Inbox() {
   const [items, setItems] = useState<Notif[]>([]);
@@ -48,9 +48,9 @@ export default function Inbox() {
             onPress={() => markRead(item.id)}
           >
             <View style={styles.cardTop}>
-              <View style={[styles.iconWrap, item.type === 'enrollment' ? styles.iconGold : styles.iconBlue]}>
+              <View style={[styles.iconWrap, item.type === 'enrollment' ? styles.iconGold : item.type === 'admin' ? styles.iconBlue : styles.iconBlue]}>
                 <Ionicons
-                  name={item.type === 'enrollment' ? 'trophy' : item.type === 'payment' ? 'card' : 'information-circle'}
+                  name={item.type === 'enrollment' ? 'trophy' : item.type === 'payment' ? 'card' : item.type === 'admin' ? 'megaphone' : 'information-circle'}
                   size={20} color="#fff"
                 />
               </View>
@@ -60,6 +60,9 @@ export default function Inbox() {
               </View>
               {!item.read && <View style={styles.dot} />}
             </View>
+            {item.image_base64 ? (
+              <Image source={{ uri: `data:image/jpeg;base64,${item.image_base64}` }} style={styles.image} />
+            ) : null}
             <Text style={styles.body}>{item.body}</Text>
           </TouchableOpacity>
         )}
@@ -82,6 +85,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '800', color: colors.primary },
   date: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
   body: { color: colors.textPrimary, marginTop: 10, lineHeight: 20 },
+  image: { width: '100%', height: 180, borderRadius: 10, marginTop: 10 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.error },
   empty: { alignItems: 'center', padding: 40, gap: 10 },
   muted: { color: colors.textSecondary },

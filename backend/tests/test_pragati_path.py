@@ -304,9 +304,10 @@ class TestPayments:
         assert rd.status_code == 200
         time.sleep(1)
         rn = session.get(f"{BASE_URL}/api/notifications/me", headers=_h(parent_data["token"]))
-        enroll_count = sum(1 for n in rn.json() if n["type"] == "enrollment")
-        # Should still be just 1 enrollment notification total (no new one issued)
-        assert enroll_count == 1, f"Expected 1 enrollment notif, got {enroll_count}"
+        # v3: register adds 1 welcome enrollment + first enrollment adds Welcome template = 2.
+        # Second course approval must NOT add another templated welcome.
+        templated = [n for n in rn.json() if n["type"] == "enrollment" and n.get("title") == "Welcome to Pragati Path"]
+        assert len(templated) == 1, f"Expected 1 templated welcome, got {len(templated)}"
 
     def test_non_course_payment_gets_payment_approved_notif(self, session, parent_data, admin_token):
         # fresh parent to guarantee no prior state

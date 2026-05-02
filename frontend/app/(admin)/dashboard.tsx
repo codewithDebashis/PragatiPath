@@ -49,6 +49,7 @@ export default function AdminDashboard() {
 
         <Text style={styles.sectionTitle}>Manage</Text>
         <Tile title="Payment Requests" sub="Approve or reject pending UPI payments" icon="cash" onPress={() => router.push('/(admin)/payments')} testID="tile-payments" />
+        <Tile title="Send Message" sub="Notify all parents or a specific parent" icon="send" onPress={() => router.push('/(admin)/messages')} testID="tile-messages" />
         <Tile title="Items & Rate Chart" sub="Courses, study materials, merchandise" icon="cube" onPress={() => router.push('/(admin)/items')} testID="tile-items" />
         <Tile title="Attendance" sub="Mark daily attendance per child" icon="calendar" onPress={() => router.push('/(admin)/attendance')} testID="tile-attendance" />
         <Tile title="Advertisements" sub="Add, edit, or remove announcements" icon="megaphone" onPress={() => router.push('/(admin)/ads')} testID="tile-ads" />
