@@ -9,7 +9,7 @@ import uuid
 import logging
 import bcrypt
 import jwt
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import List, Optional, Literal
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request
@@ -25,7 +25,7 @@ db = client[os.environ['DB_NAME']]
 
 JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ['JWT_SECRET']
-ACCESS_TOKEN_EXPIRE_DAYS = 30  # mobile token
+ACCESS_TOKEN_EXPIRE_DAYS = 30
 
 DEFAULT_TEMPLATE = (
     "Congratulations! Your ID is created. Your User ID is {user_id} and password is {password}. "
@@ -106,6 +106,20 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+def child_doc(parent_id: str, name: str, age: Optional[int], cls: Optional[str]) -> dict:
+    cid = str(uuid.uuid4())
+    return {
+        "id": cid,
+        "parent_id": parent_id,
+        "name": name,
+        "age": age,
+        "child_class": cls,
+        "child_id_code": "PPC-" + cid[:6].upper(),
+        "enrollment_status": "pending",
+        "created_at": now_iso(),
+    }
+
+
 # ---------------- Schemas ----------------
 class RegisterIn(BaseModel):
     email: EmailStr
@@ -127,6 +141,12 @@ class TokenOut(BaseModel):
     user: dict
 
 
+class ChildIn(BaseModel):
+    name: str
+    age: Optional[int] = None
+    child_class: Optional[str] = None
+
+
 class UpiSettingsIn(BaseModel):
     upi_id: str
     qr_image_base64: Optional[str] = None
@@ -134,8 +154,14 @@ class UpiSettingsIn(BaseModel):
     instructions: Optional[str] = None
 
 
+class CartItem(BaseModel):
+    item_id: str
+    qty: int = 1
+
+
 class PaymentCreateIn(BaseModel):
-    amount: float
+    items: List[CartItem]
+    child_id: Optional[str] = None
     utr: Optional[str] = None
     screenshot_base64: Optional[str] = None
     note: Optional[str] = None
@@ -155,6 +181,22 @@ class AdIn(BaseModel):
 
 class TemplateIn(BaseModel):
     template: str
+
+
+class ItemIn(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    item_type: Literal["course", "material", "merch", "other"] = "other"
+    image_base64: Optional[str] = None
+    active: bool = True
+
+
+class AttendanceIn(BaseModel):
+    child_id: str
+    date: str  # YYYY-MM-DD
+    status: Literal["present", "absent", "leave"]
+    note: Optional[str] = None
 
 
 # ---------------- Auth ----------------
@@ -181,6 +223,8 @@ async def register(body: RegisterIn):
         "created_at": now_iso(),
     }
     await db.users.insert_one(doc)
+    # auto-create the first child record
+    await db.children.insert_one(child_doc(user_id, body.child_name, body.child_age, body.child_class))
     token = create_token(user_id, email, "parent")
     return {"token": token, "user": clean_user(doc)}
 
@@ -198,6 +242,48 @@ async def login(body: LoginIn):
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return clean_user(user)
+
+
+# ---------------- Children ----------------
+@api_router.get("/children/me")
+async def my_children(user: dict = Depends(get_current_user)):
+    items = await db.children.find({"parent_id": user["id"]}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    return items
+
+
+@api_router.post("/children")
+async def add_child(body: ChildIn, user: dict = Depends(get_current_user)):
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Admins do not have children records")
+    doc = child_doc(user["id"], body.name, body.age, body.child_class)
+    await db.children.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/children/{child_id}")
+async def update_child(child_id: str, body: ChildIn, user: dict = Depends(get_current_user)):
+    res = await db.children.update_one(
+        {"id": child_id, "parent_id": user["id"]},
+        {"$set": {"name": body.name, "age": body.age, "child_class": body.child_class}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Child not found")
+    return await db.children.find_one({"id": child_id}, {"_id": 0})
+
+
+@api_router.delete("/children/{child_id}")
+async def delete_child(child_id: str, user: dict = Depends(get_current_user)):
+    res = await db.children.delete_one({"id": child_id, "parent_id": user["id"]})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Child not found")
+    return {"ok": True}
+
+
+@api_router.get("/admin/children")
+async def all_children(admin: dict = Depends(require_admin)):
+    items = await db.children.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return items
 
 
 # ---------------- UPI Settings ----------------
@@ -222,19 +308,88 @@ async def update_upi(body: UpiSettingsIn, admin: dict = Depends(require_admin)):
     return s
 
 
+# ---------------- Items Catalog ----------------
+@api_router.get("/items")
+async def list_active_items(user: dict = Depends(get_current_user)):
+    items = await db.items.find({"active": True}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+
+@api_router.get("/admin/items")
+async def all_items(admin: dict = Depends(require_admin)):
+    items = await db.items.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return items
+
+
+@api_router.post("/admin/items")
+async def create_item(body: ItemIn, admin: dict = Depends(require_admin)):
+    doc = {"id": str(uuid.uuid4()), **body.dict(), "created_at": now_iso()}
+    await db.items.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/admin/items/{item_id}")
+async def update_item(item_id: str, body: ItemIn, admin: dict = Depends(require_admin)):
+    res = await db.items.update_one({"id": item_id}, {"$set": body.dict()})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return await db.items.find_one({"id": item_id}, {"_id": 0})
+
+
+@api_router.delete("/admin/items/{item_id}")
+async def delete_item(item_id: str, admin: dict = Depends(require_admin)):
+    res = await db.items.delete_one({"id": item_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"ok": True}
+
+
 # ---------------- Payments ----------------
 @api_router.post("/payments")
 async def create_payment(body: PaymentCreateIn, user: dict = Depends(get_current_user)):
     if user.get("role") == "admin":
         raise HTTPException(status_code=400, detail="Admins cannot create payments")
+    if not body.items:
+        raise HTTPException(status_code=400, detail="At least one item required")
+    # validate child belongs to parent (if provided)
+    child = None
+    if body.child_id:
+        child = await db.children.find_one({"id": body.child_id, "parent_id": user["id"]}, {"_id": 0})
+        if not child:
+            raise HTTPException(status_code=400, detail="Invalid child")
+    # build line items + total from current catalog prices
+    lines = []
+    total = 0.0
+    has_course = False
+    for ci in body.items:
+        it = await db.items.find_one({"id": ci.item_id, "active": True}, {"_id": 0})
+        if not it:
+            raise HTTPException(status_code=400, detail=f"Item {ci.item_id} not available")
+        qty = max(1, int(ci.qty))
+        line_total = float(it["price"]) * qty
+        total += line_total
+        if it.get("item_type") == "course":
+            has_course = True
+        lines.append({
+            "item_id": it["id"],
+            "name": it["name"],
+            "price": float(it["price"]),
+            "item_type": it.get("item_type", "other"),
+            "qty": qty,
+            "line_total": line_total,
+        })
     pid = str(uuid.uuid4())
     doc = {
         "id": pid,
         "user_id": user["id"],
         "user_email": user["email"],
         "user_name": user.get("name"),
-        "child_name": user.get("child_name"),
-        "amount": body.amount,
+        "child_id": body.child_id,
+        "child_name": child["name"] if child else None,
+        "items": lines,
+        "amount": total,
+        "has_course": has_course,
         "utr": body.utr,
         "screenshot_base64": body.screenshot_base64,
         "note": body.note,
@@ -252,6 +407,16 @@ async def create_payment(body: PaymentCreateIn, user: dict = Depends(get_current
 async def my_payments(user: dict = Depends(get_current_user)):
     items = await db.payments.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
+
+
+@api_router.get("/payments/{payment_id}")
+async def payment_detail(payment_id: str, user: dict = Depends(get_current_user)):
+    p = await db.payments.find_one({"id": payment_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Not found")
+    if user.get("role") != "admin" and p["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return p
 
 
 @api_router.get("/admin/payments")
@@ -278,52 +443,76 @@ async def decide_payment(payment_id: str, body: PaymentDecisionIn, admin: dict =
     )
 
     user = await db.users.find_one({"id": payment["user_id"]}, {"_id": 0})
-    if user:
-        if new_status == "approved":
-            new_password = uuid.uuid4().hex[:8]
-            await db.users.update_one(
-                {"id": user["id"]},
-                {"$set": {
-                    "enrollment_status": "enrolled",
-                    "password_hash": hash_password(new_password),
-                    "issued_password": new_password,
-                }},
+    if not user:
+        return await db.payments.find_one({"id": payment_id}, {"_id": 0})
+
+    if new_status == "approved":
+        # if course item present and child linked, mark child enrolled
+        if payment.get("has_course") and payment.get("child_id"):
+            await db.children.update_one(
+                {"id": payment["child_id"], "parent_id": user["id"]},
+                {"$set": {"enrollment_status": "enrolled"}},
             )
-            tpl_doc = await db.settings.find_one({"id": "auto_message"}, {"_id": 0})
-            template = tpl_doc.get("template") if tpl_doc else DEFAULT_TEMPLATE
-            user_id_code = user.get("user_id_code") or user["id"][:8]
-            text = template.replace("{user_id}", user_id_code).replace("{password}", new_password)
-            await db.notifications.insert_one({
-                "id": str(uuid.uuid4()),
-                "user_id": user["id"],
-                "title": "🎉 Enrollment Successful",
-                "body": text,
-                "type": "enrollment",
-                "read": False,
-                "created_at": now_iso(),
+            # if first time enrolling any child, generate creds & send template msg
+            already_enrolled_count = await db.children.count_documents({
+                "parent_id": user["id"], "enrollment_status": "enrolled",
             })
+            if user.get("enrollment_status") != "enrolled":
+                new_password = uuid.uuid4().hex[:8]
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$set": {
+                        "enrollment_status": "enrolled",
+                        "password_hash": hash_password(new_password),
+                        "issued_password": new_password,
+                    }},
+                )
+                tpl_doc = await db.settings.find_one({"id": "auto_message"}, {"_id": 0})
+                template = tpl_doc.get("template") if tpl_doc else DEFAULT_TEMPLATE
+                user_id_code = user.get("user_id_code") or user["id"][:8]
+                text = template.replace("{user_id}", user_id_code).replace("{password}", new_password)
+                await db.notifications.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "user_id": user["id"],
+                    "title": "Welcome to Pragati Path",
+                    "body": text,
+                    "type": "enrollment",
+                    "read": False,
+                    "created_at": now_iso(),
+                })
+            child = await db.children.find_one({"id": payment["child_id"]}, {"_id": 0})
             await db.notifications.insert_one({
                 "id": str(uuid.uuid4()),
                 "user_id": user["id"],
                 "title": "Child Enrolled",
-                "body": f"Your child {user.get('child_name','')} is successfully registered with Pragati Path.",
+                "body": f"Your child {child['name'] if child else ''} is successfully enrolled with Pragati Path.",
                 "type": "info",
                 "read": False,
                 "created_at": now_iso(),
             })
         else:
+            # no course → just a payment-received notification
             await db.notifications.insert_one({
                 "id": str(uuid.uuid4()),
                 "user_id": user["id"],
-                "title": "Payment Rejected",
-                "body": f"Your payment was rejected. {body.admin_note or ''}".strip(),
+                "title": "Payment Approved",
+                "body": f"Your payment of ₹{payment['amount']} has been received. Thank you!",
                 "type": "payment",
                 "read": False,
                 "created_at": now_iso(),
             })
+    else:
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "title": "Payment Rejected",
+            "body": f"Your payment was rejected. {body.admin_note or ''}".strip(),
+            "type": "payment",
+            "read": False,
+            "created_at": now_iso(),
+        })
 
-    updated = await db.payments.find_one({"id": payment_id}, {"_id": 0})
-    return updated
+    return await db.payments.find_one({"id": payment_id}, {"_id": 0})
 
 
 # ---------------- Advertisements ----------------
@@ -378,10 +567,66 @@ async def read_notif(notif_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
-# ---------------- Admin: Users + Template ----------------
+# ---------------- Attendance ----------------
+@api_router.post("/admin/attendance")
+async def mark_attendance(body: AttendanceIn, admin: dict = Depends(require_admin)):
+    # Upsert one record per (child_id, date)
+    child = await db.children.find_one({"id": body.child_id}, {"_id": 0})
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    update = {
+        "child_id": body.child_id,
+        "parent_id": child["parent_id"],
+        "child_name": child["name"],
+        "date": body.date,
+        "status": body.status,
+        "note": body.note,
+        "marked_by": admin["id"],
+        "marked_at": now_iso(),
+    }
+    await db.attendance.update_one(
+        {"child_id": body.child_id, "date": body.date},
+        {"$set": update, "$setOnInsert": {"id": str(uuid.uuid4())}},
+        upsert=True,
+    )
+    rec = await db.attendance.find_one({"child_id": body.child_id, "date": body.date}, {"_id": 0})
+    return rec
+
+
+@api_router.get("/admin/attendance")
+async def list_attendance(child_id: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, admin: dict = Depends(require_admin)):
+    q = {}
+    if child_id: q["child_id"] = child_id
+    if date_from or date_to:
+        d = {}
+        if date_from: d["$gte"] = date_from
+        if date_to: d["$lte"] = date_to
+        q["date"] = d
+    items = await db.attendance.find(q, {"_id": 0}).sort("date", -1).to_list(2000)
+    return items
+
+
+@api_router.get("/attendance/me")
+async def my_attendance(child_id: str, date_from: Optional[str] = None, date_to: Optional[str] = None, user: dict = Depends(get_current_user)):
+    # ensure child belongs to user
+    if user.get("role") != "admin":
+        own = await db.children.find_one({"id": child_id, "parent_id": user["id"]})
+        if not own:
+            raise HTTPException(status_code=403, detail="Not your child")
+    q = {"child_id": child_id}
+    if date_from or date_to:
+        d = {}
+        if date_from: d["$gte"] = date_from
+        if date_to: d["$lte"] = date_to
+        q["date"] = d
+    items = await db.attendance.find(q, {"_id": 0}).sort("date", -1).to_list(500)
+    return items
+
+
+# ---------------- Admin: Users + Template + Stats ----------------
 @api_router.get("/admin/users")
 async def list_users(admin: dict = Depends(require_admin)):
-    items = await db.users.find({"role": {"$ne": "admin"}}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(500)
+    items = await db.users.find({"role": {"$ne": "admin"}}, {"_id": 0, "password_hash": 0, "issued_password": 0}).sort("created_at", -1).to_list(500)
     return items
 
 
@@ -406,14 +651,18 @@ async def admin_stats(admin: dict = Depends(require_admin)):
     pending = await db.payments.count_documents({"status": "pending"})
     approved = await db.payments.count_documents({"status": "approved"})
     users = await db.users.count_documents({"role": {"$ne": "admin"}})
-    enrolled = await db.users.count_documents({"role": "parent", "enrollment_status": "enrolled"})
+    children = await db.children.count_documents({})
+    enrolled = await db.children.count_documents({"enrollment_status": "enrolled"})
     ads = await db.ads.count_documents({"active": True})
+    items = await db.items.count_documents({"active": True})
     return {
         "pending_payments": pending,
         "approved_payments": approved,
         "total_users": users,
-        "enrolled_users": enrolled,
+        "total_children": children,
+        "enrolled_children": enrolled,
         "active_ads": ads,
+        "active_items": items,
     }
 
 
@@ -429,8 +678,9 @@ async def startup():
     await db.users.create_index("id", unique=True)
     await db.payments.create_index("user_id")
     await db.notifications.create_index("user_id")
+    await db.children.create_index("parent_id")
+    await db.attendance.create_index([("child_id", 1), ("date", 1)], unique=True)
 
-    # seed admin
     admin_email = os.environ["ADMIN_EMAIL"].lower().strip()
     admin_password = os.environ["ADMIN_PASSWORD"]
     existing = await db.users.find_one({"email": admin_email})
@@ -447,18 +697,15 @@ async def startup():
         })
         logger.info("Seeded default admin: %s", admin_email)
     else:
-        # keep password in sync with .env
         if not verify_password(admin_password, existing.get("password_hash", "")):
             await db.users.update_one(
                 {"email": admin_email},
                 {"$set": {"password_hash": hash_password(admin_password), "role": "admin"}},
             )
 
-    # seed default template
     if not await db.settings.find_one({"id": "auto_message"}):
         await db.settings.insert_one({"id": "auto_message", "template": DEFAULT_TEMPLATE})
 
-    # seed default UPI
     if not await db.upi_settings.find_one({"id": "default"}):
         await db.upi_settings.insert_one({
             "id": "default",
@@ -468,7 +715,6 @@ async def startup():
             "instructions": "Pay using any UPI app, then upload the screenshot or enter the UTR/Transaction ID.",
         })
 
-    # seed sample ad
     if await db.ads.count_documents({}) == 0:
         await db.ads.insert_one({
             "id": str(uuid.uuid4()),
@@ -478,6 +724,30 @@ async def startup():
             "active": True,
             "created_at": now_iso(),
         })
+
+    # seed default catalog items if empty
+    if await db.items.count_documents({}) == 0:
+        seed_items = [
+            {"name": "Foundation Course (Class 1-5)", "description": "Full year coaching, all subjects", "price": 12000, "item_type": "course"},
+            {"name": "Excellence Course (Class 6-10)", "description": "Full year coaching, all subjects", "price": 18000, "item_type": "course"},
+            {"name": "Olympiad Booster", "description": "Maths & Science Olympiad prep", "price": 6000, "item_type": "course"},
+            {"name": "Study Material Pack", "description": "Printed notes + workbooks", "price": 1500, "item_type": "material"},
+            {"name": "Sample Paper Set", "description": "Practice papers with solutions", "price": 600, "item_type": "material"},
+            {"name": "Pragati Path T-Shirt", "description": "Official school T-shirt", "price": 450, "item_type": "merch"},
+        ]
+        for s in seed_items:
+            await db.items.insert_one({"id": str(uuid.uuid4()), **s, "active": True, "image_base64": "", "created_at": now_iso()})
+
+    # migrate: ensure each parent without a children record gets one created from legacy fields
+    async for u in db.users.find({"role": "parent"}, {"_id": 0}):
+        if not await db.children.find_one({"parent_id": u["id"]}):
+            if u.get("child_name"):
+                await db.children.insert_one(child_doc(u["id"], u["child_name"], u.get("child_age"), u.get("child_class")))
+                if u.get("enrollment_status") == "enrolled":
+                    await db.children.update_one(
+                        {"parent_id": u["id"]},
+                        {"$set": {"enrollment_status": "enrolled"}},
+                    )
 
 
 @app.on_event("shutdown")

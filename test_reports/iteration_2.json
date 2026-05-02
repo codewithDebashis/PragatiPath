@@ -1,0 +1,40 @@
+{
+  "summary": "Full backend + frontend retest for Pragati Path v2 (cart/items/children/attendance). 26/26 pytest backend tests pass. All requested frontend flows verified: register with class dropdown (1-10), parent dashboard 'My Children' list, /children CRUD via add-child-btn modal, Shop tab with grouped items + addto buttons + cart bar + Checkout modal with order summary/UPI QR/child selector, /receipt/[id] printable view, admin dashboard tiles (tile-items, tile-attendance) + Children/Enrolled stat cards, /(admin)/items CRUD, /(admin)/attendance with P/A/L and class filter.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Console still emits RN deprecation warnings (shadow* → boxShadow, props.pointerEvents, Image resizeMode). Cosmetic only."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pragati_path.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Server correctly excludes _id everywhere (projection {'_id':0}) and excludes password_hash + issued_password from /admin/users.",
+    "Payment model: validates child belongs to parent, computes total/line_total from catalog (server-side), flags has_course; rejects empty items (400); admin cannot create payments (400).",
+    "Approval flow: course+child_id → child enrolled; if parent not previously enrolled, issues new 8-char password, stores bcrypt hash, sets issued_password, sends templated 'Welcome' notification with {user_id}/{password} substituted. Subsequent course approvals only generate 'Child Enrolled' info notification. Non-course payments get 'Payment Approved' notif — all verified.",
+    "Attendance upsert on (child_id, date) — unique index enforced; same date twice updates (not duplicates). /attendance/me returns 403 for non-owner child.",
+    "Children: auto-created on register from legacy fields; child_id_code format 'PPC-XXXXXX' verified; admin blocked from POST /children (400).",
+    "Stats returns total_children and enrolled_children keys (not the old 'enrolled_users').",
+    "Items: item_type Literal validated (Pydantic 422 for unknown types); parent gets 403 on /admin/items CRUD.",
+    "JWT auth with bcrypt $2b$ hashes, 30-day expiry, Authorization Bearer header (mobile-adapted, no cookies — correct for React Native).",
+    "All interactive elements have testID for Playwright. ClassPicker exposes class-option-1..10."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pragati_path.py (fully rewritten for items+cart+children+attendance model)"
+  ],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "100% on tested flows"},
+  "seed_data_creation": "Test parents prefixed test_parent_/test_reject_/test_nocourse_/test_other_/ui_parent_ created via API and UI. Backend startup auto-seeds admin, 6 default items (Foundation/Excellence/Olympiad courses, Study Material Pack, Sample Paper Set, T-Shirt), default UPI & template.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_pragati_path.py is now updated for the v2 payment model (items[]+child_id) and covers children CRUD, items CRUD+type validation, cart payment approve→enroll→notification→re-login with issued password, non-course payment approval notification, second-course approval (no duplicate enrollment template), attendance upsert & parent 403 on other child, stats with total_children/enrolled_children. Run: `pytest /app/backend/tests/test_pragati_path.py -v`. Admin creds: admin@pragatipath.com / Admin@123. Frontend uses EXPO_PUBLIC_BACKEND_URL. Preview URL: https://pragati-learning-hub.preview.emergentagent.com.",
+  "rca_of_issue": "No bugs; all v2 features work end-to-end."
+}

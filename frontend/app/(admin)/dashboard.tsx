@@ -7,7 +7,7 @@ import { api } from '../../src/api';
 import { useAuth } from '../../src/auth';
 import { colors, radii, shadow } from '../../src/theme';
 
-type Stats = { pending_payments: number; approved_payments: number; total_users: number; enrolled_users: number; active_ads: number };
+type Stats = { pending_payments: number; approved_payments: number; total_users: number; total_children?: number; enrolled_children?: number; active_ads: number; active_items?: number };
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -42,15 +42,17 @@ export default function AdminDashboard() {
 
         <View style={styles.statsGrid}>
           <Stat label="Pending Payments" value={stats?.pending_payments ?? '-'} icon="time" color={colors.warning} testID="stat-pending" />
-          <Stat label="Total Users" value={stats?.total_users ?? '-'} icon="people" color="#3B82F6" testID="stat-users" />
-          <Stat label="Enrolled" value={stats?.enrolled_users ?? '-'} icon="trophy" color={colors.success} testID="stat-enrolled" />
-          <Stat label="Active Ads" value={stats?.active_ads ?? '-'} icon="megaphone" color={colors.secondary} testID="stat-ads" />
+          <Stat label="Total Parents" value={stats?.total_users ?? '-'} icon="people" color="#3B82F6" testID="stat-users" />
+          <Stat label="Children" value={stats?.total_children ?? '-'} icon="happy" color={colors.secondary} testID="stat-children" />
+          <Stat label="Enrolled" value={stats?.enrolled_children ?? '-'} icon="trophy" color={colors.success} testID="stat-enrolled" />
         </View>
 
         <Text style={styles.sectionTitle}>Manage</Text>
         <Tile title="Payment Requests" sub="Approve or reject pending UPI payments" icon="cash" onPress={() => router.push('/(admin)/payments')} testID="tile-payments" />
+        <Tile title="Items & Rate Chart" sub="Courses, study materials, merchandise" icon="cube" onPress={() => router.push('/(admin)/items')} testID="tile-items" />
+        <Tile title="Attendance" sub="Mark daily attendance per child" icon="calendar" onPress={() => router.push('/(admin)/attendance')} testID="tile-attendance" />
         <Tile title="Advertisements" sub="Add, edit, or remove announcements" icon="megaphone" onPress={() => router.push('/(admin)/ads')} testID="tile-ads" />
-        <Tile title="UPI / QR Settings" sub="Set UPI ID, QR image, and fee amount" icon="qr-code" onPress={() => router.push('/(admin)/upi')} testID="tile-upi" />
+        <Tile title="UPI / QR Settings" sub="Set UPI ID, QR image, and instructions" icon="qr-code" onPress={() => router.push('/(admin)/upi')} testID="tile-upi" />
         <Tile title="Users Directory" sub="View all registered parents & children" icon="people" onPress={() => router.push('/(admin)/users')} testID="tile-users" />
         <Tile title="Auto-message Template" sub="Edit the welcome message template" icon="text" onPress={() => router.push('/(admin)/template')} testID="tile-template" />
       </ScrollView>

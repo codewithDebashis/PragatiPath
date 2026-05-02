@@ -8,27 +8,32 @@ import { api } from '../../src/api';
 import { colors, radii, shadow } from '../../src/theme';
 
 type Ad = { id: string; title: string; body?: string; image_base64?: string };
+type Child = { id: string; name: string; child_class?: string; enrollment_status?: string; child_id_code?: string };
 
 export default function Dashboard() {
   const { user, refresh } = useAuth();
   const router = useRouter();
   const [ads, setAds] = useState<Ad[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [unread, setUnread] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
     try {
-      const [a, n] = await Promise.all([api.get('/ads'), api.get('/notifications/me')]);
-      setAds(a.data);
+      const [a, c, n] = await Promise.all([
+        api.get('/ads'),
+        api.get('/children/me'),
+        api.get('/notifications/me'),
+      ]);
+      setAds(a.data); setChildren(c.data);
       setUnread((n.data as any[]).filter((x) => !x.read).length);
     } catch {}
   };
 
   useFocusEffect(useCallback(() => { load(); refresh(); }, []));
-
   const onRefresh = async () => { setRefreshing(true); await load(); await refresh(); setRefreshing(false); };
 
-  const enrolled = user?.enrollment_status === 'enrolled';
+  const enrolledCount = children.filter((c) => c.enrollment_status === 'enrolled').length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -48,28 +53,51 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* Status card */}
-        <View style={[styles.statusCard, enrolled ? styles.enrolled : styles.pending]}>
+        <View style={styles.summaryCard}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.statusLabel}>Enrollment Status</Text>
-            <Text style={styles.statusValue}>{enrolled ? 'ENROLLED ✨' : 'PENDING'}</Text>
-            <Text style={styles.childRow}>Child: {user?.child_name || '-'}</Text>
-            <Text style={styles.childRow}>User ID: {user?.user_id_code || '-'}</Text>
+            <Text style={styles.summaryLabel}>Children</Text>
+            <Text style={styles.summaryValue}>{children.length}</Text>
+            <Text style={styles.summaryHint}>{enrolledCount} enrolled · {children.length - enrolledCount} pending</Text>
           </View>
-          <Ionicons name={enrolled ? 'trophy' : 'hourglass'} size={48} color={enrolled ? colors.secondary : '#fff'} />
+          <Ionicons name="trophy" size={48} color={colors.secondary} />
         </View>
 
-        {!enrolled && (
-          <TouchableOpacity testID="pay-cta" style={styles.payCta} onPress={() => router.push('/(parent)/payment')}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.payTitle}>Pay Fees & Enroll</Text>
-              <Text style={styles.paySub}>Complete payment to activate your child's account</Text>
-            </View>
-            <Ionicons name="arrow-forward-circle" size={36} color="#fff" />
+        <View style={[styles.sectionRow, { marginTop: 22 }]}>
+          <Text style={styles.sectionTitle}>My Children</Text>
+          <TouchableOpacity testID="manage-children" onPress={() => router.push('/children')}>
+            <Text style={styles.linkTxt}>Manage</Text>
           </TouchableOpacity>
+        </View>
+        {children.length === 0 ? (
+          <TouchableOpacity testID="add-first-child" style={styles.emptyCard} onPress={() => router.push('/children')}>
+            <Ionicons name="person-add" color={colors.primary} size={24} />
+            <Text style={styles.emptyTxt}>Add your first child</Text>
+          </TouchableOpacity>
+        ) : (
+          children.map((c) => (
+            <View key={c.id} style={styles.childCard} testID={`child-${c.id}`}>
+              <View style={styles.childIcon}><Ionicons name="happy" color="#fff" size={22} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.childName}>{c.name}</Text>
+                <Text style={styles.childMeta}>Class {c.child_class || '-'} · {c.child_id_code}</Text>
+              </View>
+              <View style={[styles.statusPill, c.enrollment_status === 'enrolled' ? { backgroundColor: '#D1FAE5' } : { backgroundColor: '#FEF3C7' }]}>
+                <Text style={[styles.statusTxt, { color: c.enrollment_status === 'enrolled' ? '#065F46' : '#92400E' }]}>
+                  {c.enrollment_status === 'enrolled' ? 'ENROLLED' : 'PENDING'}
+                </Text>
+              </View>
+            </View>
+          ))
         )}
 
-        {/* Announcements */}
+        <TouchableOpacity testID="pay-cta" style={styles.payCta} onPress={() => router.push('/(parent)/payment')}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.payTitle}>Browse Courses & Pay</Text>
+            <Text style={styles.paySub}>Courses, study materials, and more</Text>
+          </View>
+          <Ionicons name="arrow-forward-circle" size={36} color="#fff" />
+        </TouchableOpacity>
+
         <Text style={styles.sectionTitle}>Announcements</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16 }}>
           {ads.length === 0 && (
@@ -90,12 +118,11 @@ export default function Dashboard() {
           ))}
         </ScrollView>
 
-        {/* Quick links */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickRow}>
-          <Quick icon="qr-code" label="Pay Fees" onPress={() => router.push('/(parent)/payment')} testID="quick-pay" />
+          <Quick icon="cart" label="Shop" onPress={() => router.push('/(parent)/payment')} testID="quick-shop" />
+          <Quick icon="calendar" label="Attendance" onPress={() => router.push('/attendance')} testID="quick-attendance" />
           <Quick icon="mail" label="Inbox" onPress={() => router.push('/(parent)/inbox')} testID="quick-inbox" />
-          <Quick icon="person" label="Profile" onPress={() => router.push('/(parent)/profile')} testID="quick-profile" />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -114,22 +141,30 @@ function Quick({ icon, label, onPress, testID }: any) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: 20, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
   greet: { fontSize: 14, color: colors.textSecondary },
   brand: { fontSize: 22, fontWeight: '800', color: colors.primary, letterSpacing: 1.5 },
   bell: { backgroundColor: '#fff', padding: 12, borderRadius: 100, ...shadow },
   dot: { position: 'absolute', top: 6, right: 6, backgroundColor: colors.error, borderRadius: 10, paddingHorizontal: 5, minWidth: 18, alignItems: 'center' },
   dotTxt: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  statusCard: { borderRadius: radii.card, padding: 22, flexDirection: 'row', alignItems: 'center', ...shadow },
-  pending: { backgroundColor: colors.primary },
-  enrolled: { backgroundColor: '#0E2A4F' },
-  statusLabel: { color: colors.secondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  statusValue: { color: '#fff', fontSize: 24, fontWeight: '800', marginTop: 4 },
-  childRow: { color: '#D1D5DB', fontSize: 13, marginTop: 4 },
-  payCta: { backgroundColor: colors.secondary, marginTop: 16, padding: 20, borderRadius: radii.card, flexDirection: 'row', alignItems: 'center', ...shadow },
+  summaryCard: { backgroundColor: colors.primary, padding: 22, borderRadius: radii.card, flexDirection: 'row', alignItems: 'center', ...shadow },
+  summaryLabel: { color: colors.secondary, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
+  summaryValue: { color: '#fff', fontSize: 36, fontWeight: '800', marginTop: 4 },
+  summaryHint: { color: '#9CA3AF', fontSize: 12, marginTop: 4 },
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: colors.primary, marginTop: 22, marginBottom: 12 },
+  linkTxt: { color: colors.secondary, fontWeight: '700' },
+  emptyCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 18, borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed', borderRadius: 12 },
+  emptyTxt: { color: colors.primary, fontWeight: '700' },
+  childCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 8, ...shadow },
+  childIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  childName: { color: colors.primary, fontWeight: '700' },
+  childMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  statusTxt: { fontSize: 10, fontWeight: '800' },
+  payCta: { backgroundColor: colors.secondary, marginTop: 18, padding: 20, borderRadius: radii.card, flexDirection: 'row', alignItems: 'center', ...shadow },
   payTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
   paySub: { color: '#fff', fontSize: 13, marginTop: 2, opacity: 0.95 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.primary, marginTop: 26, marginBottom: 12 },
   adCard: { width: 240, marginRight: 12, backgroundColor: '#fff', borderRadius: radii.card, overflow: 'hidden', ...shadow },
   adImg: { width: '100%', height: 110 },
   adTitle: { fontSize: 15, fontWeight: '700', color: colors.primary, paddingHorizontal: 14, paddingTop: 10 },

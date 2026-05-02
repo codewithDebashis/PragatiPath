@@ -77,6 +77,16 @@ export default function AdminPayments() {
                 <Text style={styles.badgeTxt}>{p.status.toUpperCase()}</Text>
               </View>
             </View>
+            {Array.isArray((p as any).items) && (p as any).items.length > 0 && (
+              <View style={styles.itemsBox}>
+                {(p as any).items.map((it: any, idx: number) => (
+                  <View key={idx} style={styles.itemLine}>
+                    <Text style={styles.itemName}>{it.name} × {it.qty}</Text>
+                    <Text style={styles.itemAmt}>₹{it.line_total}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
             {p.screenshot_base64 ? (
               <TouchableOpacity onPress={() => setZoom(p.screenshot_base64!)} testID={`view-shot-${p.id}`}>
                 <Image source={{ uri: `data:image/jpeg;base64,${p.screenshot_base64}` }} style={styles.shot} />
@@ -184,4 +194,8 @@ const styles = StyleSheet.create({
   modalInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, marginTop: 10, minHeight: 80, color: colors.textPrimary, textAlignVertical: 'top' },
   zoomBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' },
   zoomImg: { width: '95%', height: '80%', resizeMode: 'contain' },
+  itemsBox: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
+  itemLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  itemName: { color: colors.textPrimary, fontSize: 13, flex: 1 },
+  itemAmt: { color: colors.primary, fontSize: 13, fontWeight: '700' },
 });

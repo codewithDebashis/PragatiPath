@@ -5,6 +5,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/auth';
 import { colors, radii, shadow } from '../../src/theme';
 
+function Link({ icon, label, onPress, testID }: { icon: any; label: string; onPress: () => void; testID?: string }) {
+  return (
+    <TouchableOpacity testID={testID} style={styles.linkRow} onPress={onPress}>
+      <Ionicons name={icon} size={20} color={colors.primary} />
+      <Text style={styles.linkLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
+}
+
 export default function Profile() {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -35,6 +45,13 @@ export default function Profile() {
             label="Status"
             value={user?.enrollment_status === 'enrolled' ? 'Enrolled ✨' : 'Pending Approval'}
           />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.section}>Manage</Text>
+          <Link icon="people" label="My Children" onPress={() => router.push('/children')} testID="link-children" />
+          <Link icon="calendar" label="Attendance" onPress={() => router.push('/attendance')} testID="link-attendance" />
+          <Link icon="receipt" label="Receipts" onPress={() => router.push('/(parent)/payment')} testID="link-receipts" />
         </View>
 
         <View style={styles.card}>
@@ -77,4 +94,6 @@ const styles = StyleSheet.create({
   rowValue: { color: colors.textPrimary, fontWeight: '600', fontSize: 14 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24, padding: 16, borderRadius: radii.button, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.error },
   logoutTxt: { color: colors.error, fontWeight: '700', fontSize: 15 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  linkLabel: { flex: 1, color: colors.textPrimary, fontWeight: '600', fontSize: 14 },
 });

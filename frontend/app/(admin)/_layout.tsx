@@ -25,7 +25,9 @@ export default function AdminLayout() {
       <Tabs.Screen name="ads" options={{ title: 'Ads', tabBarIcon: ({ color, size }) => <Ionicons name="megaphone" color={color} size={size} /> }} />
       <Tabs.Screen name="upi" options={{ title: 'UPI', tabBarIcon: ({ color, size }) => <Ionicons name="qr-code" color={color} size={size} /> }} />
       <Tabs.Screen name="users" options={{ title: 'Users', tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} /> }} />
-      <Tabs.Screen name="template" options={{ title: 'Template', tabBarIcon: ({ color, size }) => <Ionicons name="text" color={color} size={size} /> }} />
+      <Tabs.Screen name="template" options={{ href: null }} />
+      <Tabs.Screen name="items" options={{ href: null }} />
+      <Tabs.Screen name="attendance" options={{ href: null }} />
     </Tabs>
   );
 }

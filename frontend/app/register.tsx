@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
 import { useAuth } from '../src/auth';
 import { colors, radii, shadow } from '../src/theme';
+import { ClassPicker } from '../src/ClassPicker';
 
 export default function Register() {
   const router = useRouter();
@@ -20,8 +21,8 @@ export default function Register() {
   const set = (k: string) => (v: string) => setForm((s) => ({ ...s, [k]: v }));
 
   const onSubmit = async () => {
-    if (!form.name || !form.email || !form.password || !form.child_name) {
-      setErr('Please fill all required fields'); return;
+    if (!form.name || !form.email || !form.password || !form.child_name || !form.child_class) {
+      setErr('Please fill all required fields including class'); return;
     }
     if (form.password.length < 6) { setErr('Password must be at least 6 characters'); return; }
     setBusy(true); setErr('');
@@ -54,7 +55,8 @@ export default function Register() {
             <Text style={[styles.section, { marginTop: 18 }]}>Child details</Text>
             <Field label="Child's Name *" value={form.child_name} onChange={set('child_name')} testID="reg-child-name" />
             <Field label="Child's Age" value={form.child_age} onChange={set('child_age')} testID="reg-child-age" keyboardType="numeric" />
-            <Field label="Class / Grade" value={form.child_class} onChange={set('child_class')} testID="reg-child-class" />
+            <Text style={styles.label}>Class / Grade *</Text>
+            <ClassPicker value={form.child_class} onChange={set('child_class')} testID="reg-child-class" />
 
             {err ? <Text style={styles.err} testID="reg-error">{err}</Text> : null}
 
