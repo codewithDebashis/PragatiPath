@@ -358,12 +358,15 @@ async def create_payment(body: PaymentCreateIn, user: dict = Depends(get_current
         child = await db.children.find_one({"id": body.child_id, "parent_id": user["id"]}, {"_id": 0})
         if not child:
             raise HTTPException(status_code=400, detail="Invalid child")
-    # build line items + total from current catalog prices
+    # build line items + total from current catalog prices (batch fetch)
     lines = []
     total = 0.0
     has_course = False
+    item_ids = list({ci.item_id for ci in body.items})
+    found = await db.items.find({"id": {"$in": item_ids}, "active": True}, {"_id": 0}).to_list(len(item_ids))
+    by_id = {it["id"]: it for it in found}
     for ci in body.items:
-        it = await db.items.find_one({"id": ci.item_id, "active": True}, {"_id": 0})
+        it = by_id.get(ci.item_id)
         if not it:
             raise HTTPException(status_code=400, detail=f"Item {ci.item_id} not available")
         qty = max(1, int(ci.qty))
@@ -738,16 +741,23 @@ async def startup():
         for s in seed_items:
             await db.items.insert_one({"id": str(uuid.uuid4()), **s, "active": True, "image_base64": "", "created_at": now_iso()})
 
-    # migrate: ensure each parent without a children record gets one created from legacy fields
-    async for u in db.users.find({"role": "parent"}, {"_id": 0}):
-        if not await db.children.find_one({"parent_id": u["id"]}):
-            if u.get("child_name"):
-                await db.children.insert_one(child_doc(u["id"], u["child_name"], u.get("child_age"), u.get("child_class")))
-                if u.get("enrollment_status") == "enrolled":
-                    await db.children.update_one(
-                        {"parent_id": u["id"]},
-                        {"$set": {"enrollment_status": "enrolled"}},
-                    )
+    # migrate: ensure each parent without a children record gets one created from legacy fields (batched)
+    parent_users = await db.users.find({"role": "parent"}, {"_id": 0}).to_list(10000)
+    if parent_users:
+        parent_ids = [u["id"] for u in parent_users]
+        existing = await db.children.find(
+            {"parent_id": {"$in": parent_ids}}, {"_id": 0, "parent_id": 1}
+        ).to_list(len(parent_ids) * 5)
+        have_child = {c["parent_id"] for c in existing}
+        for u in parent_users:
+            if u["id"] in have_child:
+                continue
+            if not u.get("child_name"):
+                continue
+            doc = child_doc(u["id"], u["child_name"], u.get("child_age"), u.get("child_class"))
+            if u.get("enrollment_status") == "enrolled":
+                doc["enrollment_status"] = "enrolled"
+            await db.children.insert_one(doc)
 
 
 @app.on_event("shutdown")
