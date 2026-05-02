@@ -1,0 +1,188 @@
+{
+  "theme": "LIGHT",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) / Premium Education",
+  "domain": "Education / Coaching Center",
+  "design_philosophy": "A premium, trustworthy mobile experience. Designed to assure parents of the institution's quality and motivate students. Pragati Path is 'designed for Winners', so the UI must feel authoritative (Swiss clean grids) but rewarding (Golden accents for success).",
+  "color_palette": {
+    "primary": "#0A192F",
+    "primary_description": "Deep Midnight Blue - Authoritative, Trustworthy, Premium.",
+    "secondary": "#F5A623",
+    "secondary_description": "Winner's Gold - Motivational, Action-oriented, Success.",
+    "background": "#F8F9FA",
+    "background_description": "Slightly cool off-white for app background to reduce eye strain.",
+    "surface": "#FFFFFF",
+    "surface_description": "Pure white for cards and floating elements.",
+    "text": {
+      "primary": "#111827",
+      "secondary": "#6B7280",
+      "inverse": "#FFFFFF",
+      "success": "#10B981",
+      "error": "#EF4444"
+    },
+    "borders": "#E5E7EB"
+  },
+  "typography": {
+    "font_family_primary": "Outfit",
+    "font_family_secondary": "Manrope",
+    "scales": {
+      "h1": {
+        "fontSize": 32,
+        "fontWeight": "800",
+        "letterSpacing": -1,
+        "color": "#0A192F"
+      },
+      "h2": {
+        "fontSize": 24,
+        "fontWeight": "700",
+        "letterSpacing": -0.5,
+        "color": "#111827"
+      },
+      "h3": {
+        "fontSize": 20,
+        "fontWeight": "600",
+        "color": "#111827"
+      },
+      "body": {
+        "fontSize": 16,
+        "fontWeight": "400",
+        "lineHeight": 24,
+        "color": "#4B5563"
+      },
+      "caption": {
+        "fontSize": 14,
+        "fontWeight": "500",
+        "color": "#6B7280",
+        "textTransform": "uppercase",
+        "letterSpacing": 1
+      },
+      "button": {
+        "fontSize": 16,
+        "fontWeight": "700",
+        "color": "#FFFFFF",
+        "letterSpacing": 0.5
+      }
+    }
+  },
+  "spacing_and_layout": {
+    "padding": {
+      "screen": 24,
+      "card_inner": 20,
+      "input": 16,
+      "button": 16
+    },
+    "radii": {
+      "card": 16,
+      "button": 12,
+      "input": 12,
+      "badge": 8
+    },
+    "shadows": {
+      "soft": {
+        "shadowColor": "#000000",
+        "shadowOffset": { "width": 0, "height": 4 },
+        "shadowOpacity": 0.05,
+        "shadowRadius": 12,
+        "elevation": 2
+      },
+      "medium": {
+        "shadowColor": "#000000",
+        "shadowOffset": { "width": 0, "height": 8 },
+        "shadowOpacity": 0.08,
+        "shadowRadius": 24,
+        "elevation": 4
+      }
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": {
+        "backgroundColor": "#0A192F",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "alignItems": "center",
+        "justifyContent": "center"
+      },
+      "accent": {
+        "backgroundColor": "#F5A623",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "alignItems": "center",
+        "justifyContent": "center"
+      }
+    },
+    "inputs": {
+      "container": {
+        "backgroundColor": "#FFFFFF",
+        "borderWidth": 1,
+        "borderColor": "#E5E7EB",
+        "borderRadius": 12,
+        "padding": 16,
+        "fontSize": 16,
+        "color": "#111827"
+      }
+    },
+    "cards": {
+      "default": {
+        "backgroundColor": "#FFFFFF",
+        "borderRadius": 16,
+        "padding": 20,
+        "marginBottom": 16
+      }
+    }
+  },
+  "screens": {
+    "Splash_Onboarding": {
+      "layout": "Centered flex layout, solid #0A192F background. Large logo and tagline 'Designed for Winners' in #F5A623.",
+      "visuals": "Abstract high-end educational pattern or clean typography."
+    },
+    "Auth_Registration": {
+      "layout": "Bottom-sheet style card over a dark hero banner. Form fields for Parent Name, Child Name, Phone, Password. Clear hierarchy.",
+      "interactions": "Primary submit button triggers 'Registration Successful' success state."
+    },
+    "Parent_Dashboard": {
+      "header": "Sticky nav with user greeting and notification bell.",
+      "announcements": "Horizontal ScrollView (Ads/Announcements banner) controlled by Admin.",
+      "child_status": "Bento-style card highlighting Child's ID, Enrollment Status.",
+      "payment_section": "Prominent 'Pay Fees' CTA card in Gold (#F5A623)."
+    },
+    "Payment_Screen": {
+      "layout": "Vertical list layout. Admin's UPI QR Code centered prominently. UPI ID text below it with 'Copy' icon.",
+      "actions": "'I Have Paid' button triggering an image picker to upload screenshot/UTR.",
+      "status": "Changes state to 'Pending Admin Confirmation' after upload."
+    },
+    "Messages_Inbox": {
+      "layout": "List layout of system messages. Includes the auto-generated credential message (User ID/Password)."
+    },
+    "Admin_Dashboard": {
+      "layout": "Grid navigation for admin capabilities.",
+      "features": [
+        "Manage Payment Requests (Approve/Reject list with UTR viewer)",
+        "Manage Advertisements (Add Image + Text, update database)",
+        "UPI QR Settings (Upload Image, Set ID)",
+        "User Directory (List of enrolled children)",
+        "Auto-message Settings (Edit template text)"
+      ]
+    }
+  },
+  "media_urls": {
+    "onboarding_student_success": {
+      "url": "https://images.unsplash.com/photo-1628887590259-9222254ecfea?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwxfHxoYXBweSUyMHN0dWRlbnQlMjBzdWNjZXNzfGVufDB8fHx8MTc3NzczODk2N3ww&ixlib=rb-4.1.0&q=85",
+      "description": "Graduating student looking successful, good for welcome screen or onboarding background."
+    },
+    "payment_success": {
+      "url": "https://images.unsplash.com/photo-1758523668802-53f1e40977ba?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njd8MHwxfHNlYXJjaHwyfHxvbmxpbmUlMjBwYXltZW50JTIwc3VjY2Vzc3xlbnwwfHx8fDE3Nzc3Mzg5Nzh8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Man looking happy with a tablet - can be used as a success indicator or placeholder for positive feedback."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Use pure React Native StyleSheet objects instead of CSS or Tailwind, as this is an Expo mobile app.",
+    "Implement the UI using React Native core components (View, Text, TouchableOpacity, ScrollView, TextInput, Image).",
+    "All interactive elements must include 'testID' (the RN equivalent of data-testid) formatted in kebab-case (e.g., testID='login-submit-button').",
+    "Do not use HTML tags like <div> or <span>.",
+    "Ensure cross-platform padding (use SafeAreaView for root screens).",
+    "In the Parent Dashboard, the Announcements section should be a horizontal ScrollView to feel like a carousel.",
+    "For the QR Code payment section, if you don't have a functional QR generator/image, use a well-styled placeholder View indicating where the QR code goes, accompanied by the textual UPI ID.",
+    "Implement the 'I Have Paid' button which should visually change state to 'Pending' once clicked.",
+    "Maintain the high-contrast premium feel. Use #0A192F for important text and headers, and #F5A623 for important contextual buttons (like payments)."
+  ]
+}
