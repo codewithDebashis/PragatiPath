@@ -45,3 +45,6 @@ Mobile app (Expo React Native + FastAPI + MongoDB) for "Pragati Path" coaching c
 1. **Auto-credentials on first enrollment** — when admin approves first course payment for a parent, system generates a fresh password, hashes it, sends the templated welcome notification. Subsequent children enroll without resetting parent's working password.
 2. **Server-priced cart** — payment totals are computed server-side from current item prices (never trusted from client), preventing spoofed amounts.
 3. **Calendar-style attendance** — colored dots make a month's status visible at a glance for parents.
+4. **Welcome message in inbox** — on register, an enrollment-typed notification with the User ID and password is dropped into the inbox so parents can always retrieve their credentials.
+5. **Admin-to-parent messaging** — admin can broadcast to all parents or DM a single parent with title, body and optional image; messages show up in the parent inbox with a megaphone icon.
+6. **Unread badge everywhere** — dashboard bell + Inbox tab icon both show a live red badge with the unread count (polled every 15s, refreshed on app foreground).
