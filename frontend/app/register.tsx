@@ -6,18 +6,19 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Link } from 'expo-router';
+import { useRouter, Link, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../src/auth';
 import { colors, radii, shadow } from '../src/theme';
 import { ClassPicker } from '../src/ClassPicker';
 
 export default function Register() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ ref?: string }>();
   const { register } = useAuth();
   const [form, setForm] = useState({
     name: '', email: '', password: '', phone: '',
     child_name: '', child_age: '', child_class: '',
-    referrer_code: '',
+    referrer_code: typeof params.ref === 'string' ? params.ref.toUpperCase() : '',
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');

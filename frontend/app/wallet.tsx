@@ -33,7 +33,10 @@ export default function Wallet() {
   useFocusEffect(useCallback(() => { load(); }, []));
 
   const code = user?.user_id_code || '';
+  const baseUrl = (process.env.EXPO_PUBLIC_BACKEND_URL || '').replace(/\/$/, '');
+  const referLink = code ? `${baseUrl}/register?ref=${code}` : '';
   const copyCode = async () => { await Clipboard.setStringAsync(code); Alert.alert('Copied', 'Referral code copied'); };
+  const copyLink = async () => { await Clipboard.setStringAsync(referLink); Alert.alert('Copied', 'Referral link copied'); };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -74,6 +77,10 @@ export default function Wallet() {
             <TouchableOpacity testID="copy-code" style={styles.actionBtn} onPress={copyCode}>
               <Ionicons name="copy" size={18} color={colors.primary} />
               <Text style={styles.actionTxt}>Copy code</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID="copy-link" style={styles.actionBtn} onPress={copyLink}>
+              <Ionicons name="link" size={18} color={colors.primary} />
+              <Text style={styles.actionTxt}>Copy link</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -119,11 +126,27 @@ export default function Wallet() {
         <TouchableOpacity style={styles.modalBg} activeOpacity={1} onPress={() => setShowQR(false)}>
           <View style={styles.qrCard}>
             <Text style={styles.qrTitle}>Your Referral QR</Text>
-            <Text style={styles.muted}>Share this with new parents</Text>
+            <Text style={styles.muted}>Scanning opens the sign-up page with your code pre-filled.</Text>
             <View style={styles.qrBox}>
-              <QRCode value={code} size={220} />
+              {referLink ? <QRCode value={referLink} size={220} /> : null}
             </View>
             <Text style={styles.qrCode}>{code}</Text>
+            <Text style={styles.qrLink} numberOfLines={2}>{referLink}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <TouchableOpacity testID="qr-copy-link" style={[styles.actionBtn, { flex: 1 }]} onPress={copyLink}>
+                <Ionicons name="link" size={18} color={colors.primary} />
+                <Text style={styles.actionTxt}>Copy link</Text>
+              </TouchableOpacity>
+              <TouchableOpacity testID="qr-share" style={[styles.actionBtn, { flex: 1 }]} onPress={async () => {
+                try {
+                  const Share = await import('react-native').then(m => m.Share);
+                  await Share.share({ message: `Join Pragati Path using my referral! ${referLink}` });
+                } catch {}
+              }}>
+                <Ionicons name="share-social" size={18} color={colors.primary} />
+                <Text style={styles.actionTxt}>Share</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowQR(false)}>
               <Text style={styles.closeBtnTxt}>Close</Text>
             </TouchableOpacity>
@@ -225,6 +248,7 @@ const styles = StyleSheet.create({
   qrTitle: { fontSize: 20, fontWeight: '800', color: colors.primary, textAlign: 'center' },
   qrBox: { padding: 16, marginTop: 14, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: colors.border },
   qrCode: { fontSize: 22, fontWeight: '800', color: colors.primary, letterSpacing: 3, marginTop: 12 },
+  qrLink: { fontSize: 11, color: colors.textSecondary, marginTop: 6, textAlign: 'center', maxWidth: 280 },
   closeBtn: { backgroundColor: colors.primary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, marginTop: 16 },
   closeBtnTxt: { color: '#fff', fontWeight: '800' },
   modalCard: { width: '100%', maxWidth: 420, backgroundColor: '#fff', borderRadius: 24, padding: 24 },
