@@ -191,6 +191,10 @@ class AdminMessageIn(BaseModel):
     user_id: Optional[str] = None
 
 
+class AdminResetPasswordIn(BaseModel):
+    new_password: Optional[str] = Field(default=None, min_length=6)
+
+
 class ItemIn(BaseModel):
     name: str
     description: Optional[str] = None
@@ -686,6 +690,36 @@ async def my_attendance(child_id: str, date_from: Optional[str] = None, date_to:
 async def list_users(admin: dict = Depends(require_admin)):
     items = await db.users.find({"role": {"$ne": "admin"}}, {"_id": 0, "password_hash": 0, "issued_password": 0}).sort("created_at", -1).to_list(500)
     return items
+
+
+@api_router.post("/admin/users/{user_id}/reset-password")
+async def admin_reset_password(user_id: str, body: AdminResetPasswordIn, admin: dict = Depends(require_admin)):
+    target = await db.users.find_one({"id": user_id, "role": "parent"}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Parent not found")
+    new_password = body.new_password or uuid.uuid4().hex[:8]
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"password_hash": hash_password(new_password), "issued_password": new_password}},
+    )
+    user_id_code = target.get("user_id_code") or user_id[:8]
+    await db.notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "title": "🔐 Password Reset",
+        "body": (
+            f"Your password has been reset by the admin.\n\n"
+            f"User ID: {user_id_code}\n"
+            f"Email: {target['email']}\n"
+            f"New Password: {new_password}\n\n"
+            f"Please sign in with the new password and save it securely."
+        ),
+        "type": "admin",
+        "image_base64": None,
+        "read": False,
+        "created_at": now_iso(),
+    })
+    return {"ok": True, "user_id": user_id, "user_id_code": user_id_code, "email": target["email"], "new_password": new_password}
 
 
 @api_router.get("/admin/template")
