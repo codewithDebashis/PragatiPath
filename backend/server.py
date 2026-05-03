@@ -78,8 +78,19 @@ def clean_user(u: dict) -> dict:
         "user_id_code": u.get("user_id_code"),
         "role": u.get("role", "parent"),
         "enrollment_status": u.get("enrollment_status", "pending"),
+        "referrer_id": u.get("referrer_id"),
+        "referrer_code": u.get("referrer_code"),
         "created_at": u.get("created_at"),
     }
+
+
+async def get_wallet_balance(user_id: str) -> float:
+    pipe = [
+        {"$match": {"user_id": user_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+    ]
+    res = await db.transactions.aggregate(pipe).to_list(1)
+    return float(res[0]["total"]) if res else 0.0
 
 
 async def get_current_user(request: Request) -> dict:
@@ -129,6 +140,7 @@ class RegisterIn(BaseModel):
     child_name: str
     child_age: Optional[int] = None
     child_class: Optional[str] = None
+    referrer_code: Optional[str] = None  # PPxxxxxx of an existing parent
 
 
 class LoginIn(BaseModel):
@@ -202,6 +214,30 @@ class ItemIn(BaseModel):
     item_type: Literal["course", "material", "merch", "other"] = "other"
     image_base64: Optional[str] = None
     active: bool = True
+    commission: float = 0.0  # ₹ per unit credited to referrer when approved
+
+
+class VideoIn(BaseModel):
+    title: str
+    youtube_url: str
+    description: Optional[str] = None
+    child_class: Optional[str] = None  # "1".."10" or None for all
+    active: bool = True
+
+
+class WithdrawIn(BaseModel):
+    amount: float = Field(gt=0)
+    upi_id: Optional[str] = None
+    note: Optional[str] = None
+
+
+class WithdrawalDecisionIn(BaseModel):
+    decision: Literal["approve", "reject", "paid"]
+    admin_note: Optional[str] = None
+
+
+class ReferralSettingsIn(BaseModel):
+    registration_bonus: float = Field(ge=0)
 
 
 class AttendanceIn(BaseModel):
@@ -218,6 +254,14 @@ async def register(body: RegisterIn):
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    referrer = None
+    if body.referrer_code:
+        code = body.referrer_code.strip().upper()
+        referrer = await db.users.find_one({"user_id_code": code, "role": "parent"}, {"_id": 0})
+        if not referrer:
+            raise HTTPException(status_code=400, detail="Invalid referral code")
+
     user_id = str(uuid.uuid4())
     user_id_code = "PP" + user_id[:6].upper()
     doc = {
@@ -232,6 +276,8 @@ async def register(body: RegisterIn):
         "user_id_code": user_id_code,
         "role": "parent",
         "enrollment_status": "pending",
+        "referrer_id": referrer["id"] if referrer else None,
+        "referrer_code": referrer["user_id_code"] if referrer else None,
         "created_at": now_iso(),
     }
     await db.users.insert_one(doc)
@@ -256,6 +302,38 @@ async def register(body: RegisterIn):
         "read": False,
         "created_at": now_iso(),
     })
+
+    # Referral bonus + congrats notification
+    if referrer:
+        settings = await db.settings.find_one({"id": "referral"}, {"_id": 0}) or {}
+        bonus = float(settings.get("registration_bonus", 0) or 0)
+        if bonus > 0:
+            await db.transactions.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": referrer["id"],
+                "type": "register_bonus",
+                "amount": bonus,
+                "ref_user_id": user_id,
+                "ref_user_name": body.name,
+                "note": f"Sign-up bonus for {body.name}",
+                "status": "credited",
+                "created_at": now_iso(),
+            })
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": referrer["id"],
+            "title": "🎊 New Referral Joined!",
+            "body": (
+                f"Congratulations! {body.name} has joined Pragati Path using your referral code "
+                f"{user_id_code if False else referrer['user_id_code']}. "
+                + (f"₹{bonus:.0f} sign-up bonus credited to your wallet." if bonus > 0 else "You'll earn commission when their first course payment is approved.")
+            ),
+            "type": "referral",
+            "image_base64": None,
+            "read": False,
+            "created_at": now_iso(),
+        })
+
     token = create_token(user_id, email, "parent")
     return {"token": token, "user": clean_user(doc)}
 
@@ -481,6 +559,43 @@ async def decide_payment(payment_id: str, body: PaymentDecisionIn, admin: dict =
         return await db.payments.find_one({"id": payment_id}, {"_id": 0})
 
     if new_status == "approved":
+        # credit per-item commission to referrer (if any)
+        if user.get("referrer_id") and payment.get("items"):
+            comm_total = 0.0
+            for it in payment["items"]:
+                # fetch latest commission from items collection (fallback 0)
+                cat = await db.items.find_one({"id": it.get("item_id")}, {"_id": 0, "commission": 1})
+                comm_unit = float((cat or {}).get("commission", 0) or 0)
+                if comm_unit > 0:
+                    comm_line = comm_unit * int(it.get("qty", 1))
+                    comm_total += comm_line
+                    await db.transactions.insert_one({
+                        "id": str(uuid.uuid4()),
+                        "user_id": user["referrer_id"],
+                        "type": "item_commission",
+                        "amount": comm_line,
+                        "ref_user_id": user["id"],
+                        "ref_user_name": user.get("name"),
+                        "payment_id": payment["id"],
+                        "item_id": it.get("item_id"),
+                        "item_name": it.get("name"),
+                        "qty": int(it.get("qty", 1)),
+                        "note": f"Commission for {it.get('name')} × {it.get('qty', 1)}",
+                        "status": "credited",
+                        "created_at": now_iso(),
+                    })
+            if comm_total > 0:
+                await db.notifications.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "user_id": user["referrer_id"],
+                    "title": "💰 Commission Credited",
+                    "body": f"₹{comm_total:.0f} commission credited from {user.get('name')}'s purchase.",
+                    "type": "wallet",
+                    "image_base64": None,
+                    "read": False,
+                    "created_at": now_iso(),
+                })
+
         # if course item present and child linked, mark child enrolled
         if payment.get("has_course") and payment.get("child_id"):
             await db.children.update_one(
@@ -747,6 +862,7 @@ async def admin_stats(admin: dict = Depends(require_admin)):
     enrolled = await db.children.count_documents({"enrollment_status": "enrolled"})
     ads = await db.ads.count_documents({"active": True})
     items = await db.items.count_documents({"active": True})
+    wd = await db.withdrawals.count_documents({"status": "requested"})
     return {
         "pending_payments": pending,
         "approved_payments": approved,
@@ -755,7 +871,178 @@ async def admin_stats(admin: dict = Depends(require_admin)):
         "enrolled_children": enrolled,
         "active_ads": ads,
         "active_items": items,
+        "pending_withdrawals": wd,
     }
+
+
+# ---------------- Videos / Classes ----------------
+@api_router.get("/videos")
+async def list_videos(child_class: Optional[str] = None, user: dict = Depends(get_current_user)):
+    q = {"active": True}
+    if child_class:
+        q["$or"] = [{"child_class": child_class}, {"child_class": None}, {"child_class": ""}]
+    items = await db.videos.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+
+@api_router.get("/admin/videos")
+async def all_videos(admin: dict = Depends(require_admin)):
+    items = await db.videos.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return items
+
+
+@api_router.post("/admin/videos")
+async def create_video(body: VideoIn, admin: dict = Depends(require_admin)):
+    doc = {"id": str(uuid.uuid4()), **body.dict(), "created_at": now_iso()}
+    await db.videos.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/admin/videos/{video_id}")
+async def update_video(video_id: str, body: VideoIn, admin: dict = Depends(require_admin)):
+    res = await db.videos.update_one({"id": video_id}, {"$set": body.dict()})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Video not found")
+    return await db.videos.find_one({"id": video_id}, {"_id": 0})
+
+
+@api_router.delete("/admin/videos/{video_id}")
+async def delete_video(video_id: str, admin: dict = Depends(require_admin)):
+    res = await db.videos.delete_one({"id": video_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Video not found")
+    return {"ok": True}
+
+
+# ---------------- Wallet & Referrals ----------------
+@api_router.get("/wallet/me")
+async def my_wallet(user: dict = Depends(get_current_user)):
+    txns = await db.transactions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    balance = sum(float(t.get("amount", 0)) for t in txns)
+    referral_count = await db.users.count_documents({"referrer_id": user["id"]})
+    settings = await db.settings.find_one({"id": "referral"}, {"_id": 0}) or {}
+    return {
+        "balance": balance,
+        "transactions": txns,
+        "referral_count": referral_count,
+        "user_id_code": user.get("user_id_code"),
+        "registration_bonus": float(settings.get("registration_bonus", 0) or 0),
+    }
+
+
+@api_router.post("/wallet/withdraw")
+async def request_withdraw(body: WithdrawIn, user: dict = Depends(get_current_user)):
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Admins cannot withdraw")
+    balance = await get_wallet_balance(user["id"])
+    if body.amount > balance:
+        raise HTTPException(status_code=400, detail=f"Insufficient balance (₹{balance:.0f})")
+    wid = str(uuid.uuid4())
+    doc = {
+        "id": wid,
+        "user_id": user["id"],
+        "user_name": user.get("name"),
+        "user_email": user["email"],
+        "amount": body.amount,
+        "upi_id": body.upi_id,
+        "note": body.note,
+        "status": "requested",
+        "admin_note": None,
+        "created_at": now_iso(),
+        "decided_at": None,
+    }
+    await db.withdrawals.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.get("/wallet/withdrawals/me")
+async def my_withdrawals(user: dict = Depends(get_current_user)):
+    items = await db.withdrawals.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return items
+
+
+@api_router.get("/admin/withdrawals")
+async def admin_withdrawals(status: Optional[str] = None, admin: dict = Depends(require_admin)):
+    q = {}
+    if status: q["status"] = status
+    items = await db.withdrawals.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+
+@api_router.post("/admin/withdrawals/{wid}/decide")
+async def decide_withdrawal(wid: str, body: WithdrawalDecisionIn, admin: dict = Depends(require_admin)):
+    w = await db.withdrawals.find_one({"id": wid}, {"_id": 0})
+    if not w:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    if w["status"] not in ("requested", "approved"):
+        raise HTTPException(status_code=400, detail="Cannot change status")
+    new_status = body.decision  # approve|reject|paid
+    update = {"status": new_status, "admin_note": body.admin_note, "decided_at": now_iso()}
+    await db.withdrawals.update_one({"id": wid}, {"$set": update})
+    if new_status == "paid":
+        # debit the wallet — negative txn
+        await db.transactions.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": w["user_id"],
+            "type": "withdrawal_paid",
+            "amount": -float(w["amount"]),
+            "withdrawal_id": wid,
+            "note": f"Withdrawal ₹{float(w['amount']):.0f} paid",
+            "status": "debited",
+            "created_at": now_iso(),
+        })
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": w["user_id"],
+            "title": "✅ Withdrawal Paid",
+            "body": f"₹{float(w['amount']):.0f} has been paid out. {body.admin_note or ''}".strip(),
+            "type": "wallet",
+            "image_base64": None,
+            "read": False,
+            "created_at": now_iso(),
+        })
+    elif new_status == "rejected":
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": w["user_id"],
+            "title": "Withdrawal Rejected",
+            "body": f"Your withdrawal request was rejected. {body.admin_note or ''}".strip(),
+            "type": "wallet",
+            "image_base64": None,
+            "read": False,
+            "created_at": now_iso(),
+        })
+    return await db.withdrawals.find_one({"id": wid}, {"_id": 0})
+
+
+@api_router.get("/admin/referral-settings")
+async def get_ref_settings(admin: dict = Depends(require_admin)):
+    s = await db.settings.find_one({"id": "referral"}, {"_id": 0}) or {}
+    return {"registration_bonus": float(s.get("registration_bonus", 0) or 0)}
+
+
+@api_router.put("/admin/referral-settings")
+async def put_ref_settings(body: ReferralSettingsIn, admin: dict = Depends(require_admin)):
+    await db.settings.update_one(
+        {"id": "referral"},
+        {"$set": {"registration_bonus": body.registration_bonus, "updated_at": now_iso()}, "$setOnInsert": {"id": "referral"}},
+        upsert=True,
+    )
+    return {"registration_bonus": body.registration_bonus}
+
+
+@api_router.get("/admin/referrals")
+async def admin_referrals(admin: dict = Depends(require_admin)):
+    """List all referral relationships."""
+    pipe = [
+        {"$match": {"role": "parent", "referrer_id": {"$ne": None}}},
+        {"$project": {"_id": 0, "id": 1, "name": 1, "email": 1, "user_id_code": 1, "child_name": 1, "referrer_id": 1, "referrer_code": 1, "enrollment_status": 1, "created_at": 1}},
+        {"$sort": {"created_at": -1}},
+    ]
+    items = await db.users.aggregate(pipe).to_list(1000)
+    return items
 
 
 @api_router.get("/")
@@ -772,6 +1059,9 @@ async def startup():
     await db.notifications.create_index("user_id")
     await db.children.create_index("parent_id")
     await db.attendance.create_index([("child_id", 1), ("date", 1)], unique=True)
+    await db.transactions.create_index("user_id")
+    await db.users.create_index("user_id_code")
+    await db.users.create_index("referrer_id")
 
     admin_email = os.environ["ADMIN_EMAIL"].lower().strip()
     admin_password = os.environ["ADMIN_PASSWORD"]
@@ -805,6 +1095,20 @@ async def startup():
             "qr_image_base64": "",
             "fee_amount": 5000.0,
             "instructions": "Pay using any UPI app, then upload the screenshot or enter the UTR/Transaction ID.",
+        })
+
+    if not await db.settings.find_one({"id": "referral"}):
+        await db.settings.insert_one({"id": "referral", "registration_bonus": 200.0})
+
+    if await db.videos.count_documents({}) == 0:
+        await db.videos.insert_one({
+            "id": str(uuid.uuid4()),
+            "title": "Welcome to Pragati Path Classes",
+            "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "description": "Sample intro video. Replace with real class videos from the admin panel.",
+            "child_class": None,
+            "active": True,
+            "created_at": now_iso(),
         })
 
     if await db.ads.count_documents({}) == 0:

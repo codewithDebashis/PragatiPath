@@ -1,0 +1,60 @@
+{
+  "summary": "v4 (Classes/YouTube, Referrals PPxxxxxx, Wallet+QR, Withdrawals, Item commission) tested. Backend: 53/53 pytest (20 new v4 + 33 carried). Frontend: CRITICAL missing dep `react-native-svg` caused Metro red screen on every route. I installed it (`yarn add react-native-svg@15.15.4`), cleared metro cache, restarted expo — app now loads. Verified end-to-end: register → welcome modal shows PPxxxxxx, navigate to /wallet (balance, ₹200 sign-up bonus label, referral code rendered), QR button opens modal (react-native-qrcode-svg now resolves), Classes tab mounts with list container. Backend bug discovered: rejection notification branch dead-code (string literal mismatch).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/admin/withdrawals/{wid}/decide",
+        "issue": "WithdrawalDecisionIn Literal accepts ['approve','reject','paid'] but handler at line 1006 checks `new_status == 'rejected'` (never matches) — rejection notification is never inserted. Also persisted status is 'reject'/'approve' (not past tense), so frontend wallet.tsx wdColor() badge only styles 'paid' correctly; 'reject'/'approve' fall through to warning color. Fix: either change Literal to ['approve','reject','paid'] + compare to 'reject'/'approve' AND normalize stored status to approved/rejected; simplest: map body.decision → 'approved'|'rejected'|'paid' before persisting.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "react-native-qrcode-svg",
+        "issue": "Missing peer dep `react-native-svg` caused Metro red screen ('Unable to resolve module react-native-svg') on every route including /register, /wallet, (parent)/*. Installed react-native-svg@15.15.4 and restarted expo — this unblocks the whole app.",
+        "testID": "show-qr",
+        "priority": "CRITICAL (fixed by tester)"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Withdrawal approve/reject badge colors",
+        "issue": "wallet.tsx wdColor() expects 'approved'/'rejected'/'paid' but backend persists 'approve'/'reject'/'paid' — only 'paid' renders correct color.",
+        "affected_testIDs": ["wd-<id>"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v4_wallet_referral_classes.py",
+    "/app/backend/tests/test_pragati_path.py",
+    "/app/backend/tests/test_v3_messaging.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Backend: Normalize withdrawal decision → 'approved' | 'rejected' | 'paid' before writing to DB, then the existing `if new_status == 'rejected'` branch will fire and the frontend badges will match. Alternative: update frontend wdColor() to accept 'approve'/'reject'. Fixing backend is preferred.",
+    "Frontend package.json: add react-native-svg as an explicit dependency (tester already installed 15.15.4). Verify `yarn.lock` is committed.",
+    "Classes tab: Optionally add a testID on individual cards is already there (`video-<id>`). During UI run, `videos` list was empty for a freshly-focused Classes tab because the ScrollView rendered before load() resolved; this is eventual-consistent and matches expectation but adds a perceivable blank state — consider a skeleton loader."
+  ],
+  "critical_code_review_comments": [
+    "backend/server.py line 974–1016: `new_status = body.decision` stores raw literal ('approve'/'reject'/'paid'). Comparisons to 'rejected' are dead code.",
+    "register handler correctly uppercases referrer_code (lowercase accepted).",
+    "commission credit on approval verified: for each payment item, latest items.commission × qty debited to referrer with type='item_commission' — works even when item is deleted later (the stored payment.items[].item_id is re-queried with $0 fallback commission).",
+    "wallet balance is computed by aggregating transactions (no separate balance field) — ensures consistency with withdrawal_paid negative txn."
+  ],
+  "updated_files": [
+    "/app/frontend/package.json (added react-native-svg@15.15.4 via yarn add)",
+    "/app/frontend/yarn.lock (updated)",
+    "/app/backend/tests/test_v4_wallet_referral_classes.py (new, 20 tests)"
+  ],
+  "success_rate": {"backend": "100% (53/53)", "frontend": "core flows verified after dep fix"},
+  "seed_data_creation": "Test users v4_ref_/v4_child_/v4_comm_/ui_ref_/ui_referee_ created via API/UI. TEST_ prefixed items created and cleaned up.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest /app/backend/tests/ -v` (expect 53 pass). Admin: admin@pragatipath.com / Admin@123. New v4 testIDs: reg-referrer-code (auto-uppercase), classes-list, video-<id>, filter-all, filter-mine, wallet-screen, show-qr, open-withdraw, wd-amount, wd-upi, wd-note, submit-wd, wd-<id>, txn-<id>, copy-code, wallet-back. ClassPicker needs: click `reg-child-class` trigger first, then `class-option-{1..10}`. Withdrawal decision literal is 'approve'/'reject'/'paid' NOT past-tense — frontend integration mismatch noted.",
+  "rca_of_issue": "1) RED SCREEN RCA: package.json declares react-native-qrcode-svg@6.3.21 but missed its peer dep react-native-svg. On first bundle resolution, Metro failed with 'Unable to resolve module react-native-svg' turning every route into an error page. Repro: navigate to /register — red screen. Mitigation applied: `yarn add react-native-svg`, restart expo. 2) REJECTION NOTIFICATION RCA: Pydantic Literal uses short verb forms ('reject') but handler compares to 'rejected'. Repro: POST /api/admin/withdrawals/{id}/decide {decision:'reject'} → withdrawal.status becomes 'reject' but no notification inserted. Mitigation: map decision to past-tense form before persisting + before comparison."
+}

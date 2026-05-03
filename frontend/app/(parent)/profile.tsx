@@ -52,6 +52,7 @@ export default function Profile() {
           <Link icon="people" label="My Children" onPress={() => router.push('/children')} testID="link-children" />
           <Link icon="calendar" label="Attendance" onPress={() => router.push('/attendance')} testID="link-attendance" />
           <Link icon="receipt" label="Receipts" onPress={() => router.push('/(parent)/payment')} testID="link-receipts" />
+          <Link icon="wallet" label="Wallet & Refer" onPress={() => router.push('/wallet')} testID="link-wallet" />
         </View>
 
         <View style={styles.card}>

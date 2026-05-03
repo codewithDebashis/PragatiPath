@@ -29,6 +29,9 @@ export default function AdminLayout() {
       <Tabs.Screen name="items" options={{ href: null }} />
       <Tabs.Screen name="attendance" options={{ href: null }} />
       <Tabs.Screen name="messages" options={{ href: null }} />
+      <Tabs.Screen name="videos" options={{ href: null }} />
+      <Tabs.Screen name="withdrawals" options={{ href: null }} />
+      <Tabs.Screen name="referrals" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -24,6 +24,7 @@ export default function ParentLayout() {
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} /> }} />
       <Tabs.Screen name="payment" options={{ title: 'Shop', tabBarIcon: ({ color, size }) => <Ionicons name="cart" color={color} size={size} /> }} />
+      <Tabs.Screen name="classes" options={{ title: 'Classes', tabBarIcon: ({ color, size }) => <Ionicons name="play-circle" color={color} size={size} /> }} />
       <Tabs.Screen
         name="inbox"
         options={{

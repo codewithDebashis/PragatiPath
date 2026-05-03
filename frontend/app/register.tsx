@@ -17,6 +17,7 @@ export default function Register() {
   const [form, setForm] = useState({
     name: '', email: '', password: '', phone: '',
     child_name: '', child_age: '', child_class: '',
+    referrer_code: '',
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -35,6 +36,7 @@ export default function Register() {
         ...form,
         email: form.email.trim(),
         child_age: form.child_age ? Number(form.child_age) : undefined,
+        referrer_code: form.referrer_code ? form.referrer_code.trim().toUpperCase() : undefined,
       });
       setWelcome({
         userIdCode: u.user_id_code || '',
@@ -70,6 +72,9 @@ export default function Register() {
             <Field label="Child's Age" value={form.child_age} onChange={set('child_age')} testID="reg-child-age" keyboardType="numeric" />
             <Text style={styles.label}>Class / Grade *</Text>
             <ClassPicker value={form.child_class} onChange={set('child_class')} testID="reg-child-class" />
+
+            <Text style={[styles.section, { marginTop: 18 }]}>Referral (optional)</Text>
+            <Field label="Referral Code (e.g. PPABCDEF)" value={form.referrer_code} onChange={(v: string) => set('referrer_code')(v.toUpperCase())} testID="reg-referrer-code" autoCapitalize="characters" />
 
             {err ? <Text style={styles.err} testID="reg-error">{err}</Text> : null}
 

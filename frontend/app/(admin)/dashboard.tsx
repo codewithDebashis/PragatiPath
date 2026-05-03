@@ -51,6 +51,9 @@ export default function AdminDashboard() {
         <Tile title="Payment Requests" sub="Approve or reject pending UPI payments" icon="cash" onPress={() => router.push('/(admin)/payments')} testID="tile-payments" />
         <Tile title="Send Message" sub="Notify all parents or a specific parent" icon="send" onPress={() => router.push('/(admin)/messages')} testID="tile-messages" />
         <Tile title="Items & Rate Chart" sub="Courses, study materials, merchandise" icon="cube" onPress={() => router.push('/(admin)/items')} testID="tile-items" />
+        <Tile title="YouTube Classes" sub="Add or edit class videos" icon="play-circle" onPress={() => router.push('/(admin)/videos')} testID="tile-videos" />
+        <Tile title="Withdrawals" sub="Process payout requests from referrers" icon="cash" onPress={() => router.push('/(admin)/withdrawals')} testID="tile-withdrawals" />
+        <Tile title="Referrals" sub="Sign-up bonus + referral tree" icon="git-network" onPress={() => router.push('/(admin)/referrals')} testID="tile-referrals" />
         <Tile title="Attendance" sub="Mark daily attendance per child" icon="calendar" onPress={() => router.push('/(admin)/attendance')} testID="tile-attendance" />
         <Tile title="Advertisements" sub="Add, edit, or remove announcements" icon="megaphone" onPress={() => router.push('/(admin)/ads')} testID="tile-ads" />
         <Tile title="UPI / QR Settings" sub="Set UPI ID, QR image, and instructions" icon="qr-code" onPress={() => router.push('/(admin)/upi')} testID="tile-upi" />
