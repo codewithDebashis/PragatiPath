@@ -123,15 +123,11 @@ function ResetModal({ user, onClose, onDone }: { user: U | null; onClose: () => 
   if (!user) return null;
 
   const confirm = () => {
-    if (mode === 'custom' && custom.length < 6) { Alert.alert('Password must be at least 6 characters'); return; }
-    Alert.alert(
-      'Reset password?',
-      `${user.name || user.email}'s password will be changed. They will be notified in their inbox.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Reset', style: 'destructive', onPress: doReset },
-      ]
-    );
+    if (mode === 'custom' && custom.length < 6) {
+      Alert.alert('Password must be at least 6 characters');
+      return;
+    }
+    doReset();
   };
 
   const doReset = async () => {
