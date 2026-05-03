@@ -978,7 +978,7 @@ async def decide_withdrawal(wid: str, body: WithdrawalDecisionIn, admin: dict = 
         raise HTTPException(status_code=404, detail="Withdrawal not found")
     if w["status"] not in ("requested", "approved"):
         raise HTTPException(status_code=400, detail="Cannot change status")
-    new_status = body.decision  # approve|reject|paid
+    new_status = {"approve": "approved", "reject": "rejected", "paid": "paid"}[body.decision]
     update = {"status": new_status, "admin_note": body.admin_note, "decided_at": now_iso()}
     await db.withdrawals.update_one({"id": wid}, {"$set": update})
     if new_status == "paid":

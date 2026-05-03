@@ -177,14 +177,16 @@ class TestAdminWithdrawals:
                    json={"amount": 20, "upi_id": "me@upi"}, headers=_h(referrer["token"]))
         wid = r.json()["id"]
         bal_before = s.get(f"{BASE_URL}/api/wallet/me", headers=_h(referrer["token"])).json()["balance"]
-        # NOTE: Pydantic literal is "reject" (not "rejected"). Backend BUG: code compares
-        # new_status == "rejected" → never fires rejection notification branch.
+        # decision verb 'reject' is mapped to past-tense 'rejected' on persist, and a notification is created.
         d = s.post(f"{BASE_URL}/api/admin/withdrawals/{wid}/decide",
                    json={"decision": "reject", "admin_note": "nope"}, headers=_h(admin_tok))
         assert d.status_code == 200, d.text
-        assert d.json()["status"] == "reject"  # stored as-is (another symptom)
+        assert d.json()["status"] == "rejected"
         bal_after = s.get(f"{BASE_URL}/api/wallet/me", headers=_h(referrer["token"])).json()["balance"]
-        assert bal_before == bal_after  # no debit (this part works)
+        assert bal_before == bal_after  # no debit on rejection
+        # rejection notification fires
+        notifs = s.get(f"{BASE_URL}/api/notifications/me", headers=_h(referrer["token"])).json()
+        assert any("Rejected" in n.get("title", "") for n in notifs)
 
     def test_paid_debits_wallet(self, s, admin_tok, referrer):
         r = s.post(f"{BASE_URL}/api/wallet/withdraw",
