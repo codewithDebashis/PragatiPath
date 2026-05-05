@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, ActivityIndicator,
-  Alert, Modal,
+  Alert, Modal, Linking, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -96,9 +96,22 @@ export default function ShopPay() {
                     <TouchableOpacity
                       testID={`sample-${it.id}`}
                       style={styles.sampleBtn}
-                      onPress={() => {
-                        if (it.sample_url) { Linking.openURL(it.sample_url); return; }
-                        if (it.sample_image_base64) { setPreviewImg(it.sample_image_base64); setPreviewTitle(it.name); }
+                      onPress={async () => {
+                        try {
+                          if (it.sample_url) {
+                            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                              window.open(it.sample_url, '_blank');
+                            } else {
+                              const can = await Linking.canOpenURL(it.sample_url);
+                              if (can) await Linking.openURL(it.sample_url);
+                              else Alert.alert('Sample unavailable', 'Could not open the sample link.');
+                            }
+                            return;
+                          }
+                          if (it.sample_image_base64) { setPreviewImg(it.sample_image_base64); setPreviewTitle(it.name); }
+                        } catch (e) {
+                          Alert.alert('Sample unavailable', 'Could not open the sample.');
+                        }
                       }}
                     >
                       <Ionicons name="eye" size={14} color={colors.primary} />
