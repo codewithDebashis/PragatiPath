@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api, formatApiError } from '../../src/api';
 import { colors, radii, shadow } from '../../src/theme';
 
-type Item = { id: string; name: string; description?: string; price: number; item_type: string; image_base64?: string };
+type Item = { id: string; name: string; description?: string; price: number; item_type: string; image_base64?: string; sample_url?: string; sample_image_base64?: string };
 type Upi = { upi_id: string; qr_image_base64?: string; instructions?: string };
 type Child = { id: string; name: string; child_class?: string; enrollment_status?: string };
 type Payment = { id: string; amount: number; status: string; utr?: string; created_at: string; items?: any[]; child_name?: string };
@@ -30,6 +30,8 @@ export default function ShopPay() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [showCheckout, setShowCheckout] = useState(false);
+  const [previewImg, setPreviewImg] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('');
 
   const load = async () => {
     try {
@@ -88,8 +90,21 @@ export default function ShopPay() {
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName}>{it.name}</Text>
-                  {it.description ? <Text style={styles.itemDesc} numberOfLines={2}>{it.description}</Text> : null}
+                  {it.description ? <Text style={styles.itemDesc}>{it.description}</Text> : null}
                   <Text style={styles.itemPrice}>₹{it.price}</Text>
+                  {(it.sample_url || it.sample_image_base64) ? (
+                    <TouchableOpacity
+                      testID={`sample-${it.id}`}
+                      style={styles.sampleBtn}
+                      onPress={() => {
+                        if (it.sample_url) { Linking.openURL(it.sample_url); return; }
+                        if (it.sample_image_base64) { setPreviewImg(it.sample_image_base64); setPreviewTitle(it.name); }
+                      }}
+                    >
+                      <Ionicons name="eye" size={14} color={colors.primary} />
+                      <Text style={styles.sampleTxt}>View Sample</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
                 {cart[it.id] ? (
                   <View style={styles.qty}>
@@ -154,6 +169,26 @@ export default function ShopPay() {
         children={children}
         onSuccess={() => { setCart({}); setShowCheckout(false); load(); }}
       />
+
+      <Modal visible={!!previewImg} transparent animationType="fade" onRequestClose={() => setPreviewImg(null)}>
+        <TouchableOpacity style={styles.previewBg} activeOpacity={1} onPress={() => setPreviewImg(null)}>
+          <View style={styles.previewBox} onStartShouldSetResponder={() => true}>
+            <View style={styles.previewHead}>
+              <Text style={styles.previewTitle} numberOfLines={1}>{previewTitle}</Text>
+              <TouchableOpacity testID="close-preview" onPress={() => setPreviewImg(null)}>
+                <Ionicons name="close" size={26} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            {previewImg ? (
+              <Image
+                source={{ uri: `data:image/jpeg;base64,${previewImg}` }}
+                style={styles.previewImg}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -340,4 +375,11 @@ const styles = StyleSheet.create({
   histDate: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgeTxt: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  sampleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 100, backgroundColor: '#EFF6FF', marginTop: 8 },
+  sampleTxt: { color: colors.primary, fontWeight: '700', fontSize: 12 },
+  previewBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
+  previewBox: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  previewHead: { position: 'absolute', top: 40, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 },
+  previewTitle: { color: '#fff', fontWeight: '800', fontSize: 16, flex: 1, marginRight: 12 },
+  previewImg: { width: '95%', height: '85%' },
 });

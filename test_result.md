@@ -101,3 +101,81 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Verify the View Sample / item description feature on the Pragati Path coaching centre app. Admin should be able to add items (notes/study materials/courses) with description, sample_url and sample_image_base64. Parents in the Shop should see description + a 'View Sample' button that opens the URL or previews the image before paying. Also ensure no regression in existing shop/payments/auth flow."
+
+backend:
+  - task: "Items CRUD with description, sample_url, sample_image_base64"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "ItemIn model now includes description, sample_url, sample_image_base64. Admin POST/PUT /api/admin/items persists these. GET /api/items (parent) and GET /api/admin/items return them. Needs verification that fields are saved and returned correctly, plus that existing items without these fields still work."
+        - working: true
+          agent: "testing"
+          comment: "Verified end-to-end via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. POST /api/admin/items with description, sample_url, sample_image_base64 returns 200 and the response payload contains all three new fields. GET /api/admin/items and GET /api/items (parent) both return the item with description+sample_url+sample_image_base64 intact. PUT /api/admin/items/{id} updates description and sample_url and the response reflects the new values. Backward compat: POST /api/admin/items without description/sample_url/sample_image_base64 succeeds (Optional fields stored as null). DELETE /api/admin/items/{id} returns 200. All 8 item-related assertions passed."
+
+  - task: "Regression – Auth, Payments, Shop flow"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "After item schema change, verify register/login, /api/items (parent), POST /api/payments with an item referencing the new fields, and admin approval still work end-to-end."
+        - working: true
+          agent: "testing"
+          comment: "Full regression passed. Admin login (admin@pragatipath.com/Admin@123) → 200. POST /api/auth/register with first_child details creates parent + child and returns token. POST /api/auth/login for the new parent works. GET /api/auth/me returns the user. GET /api/children/me returns the auto-created child. GET /api/items returns active items including the new sample-enabled one. POST /api/payments with items=[{item_id, qty:1}], child_id, utr, screenshot_base64 → 200 with computed amount=799 matching catalog price. GET /api/admin/payments?status=pending lists the payment. POST /api/admin/payments/{id}/decide with decision=approve → 200, status flips to approved, parent receives 'Payment Approved' notification (item is material so no enrollment expected — verified). All 13 regression assertions passed. Total: 21/21 pass."
+
+frontend:
+  - task: "Admin Items editor (description + sample URL + sample image)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(admin)/items.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Editor supports description, sample URL and sample image pick. Not testing FE without user permission."
+
+  - task: "Parent Shop View Sample modal + description display"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(parent)/payment.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Shop shows description and 'View Sample' pill. URL opens via Linking, image opens in preview modal. Not testing FE without user permission."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Items CRUD with description, sample_url, sample_image_base64"
+    - "Regression – Auth, Payments, Shop flow"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "Please test the Items API changes end-to-end: (1) Admin login with admin@pragatipath.com / Admin@123. (2) POST /api/admin/items with description, sample_url, sample_image_base64 – verify GET /api/admin/items and parent GET /api/items return those fields. (3) PUT /api/admin/items/{id} updates the fields. (4) Also regression-test the core flow: parent register, login, fetch /api/items, create a payment referencing the new item via POST /api/payments, admin approve via /api/admin/payments/{id}/decide. Credentials: /app/memory/test_credentials.md."
+    - agent: "testing"
+      message: "Backend testing complete via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 21/21 assertions passed. Items CRUD (description, sample_url, sample_image_base64) verified on POST/GET(admin)/GET(parent)/PUT/DELETE plus backward-compat POST without the new optional fields. Regression auth+payments+shop flow passed: admin login, parent register, parent login, /auth/me, /children/me, /items, POST /payments (amount computed correctly from catalog), /admin/payments?status=pending lists the payment, /admin/payments/{id}/decide approve flips status and creates 'Payment Approved' notification visible at /notifications/me. No issues found. Both backend tasks set to working:true, needs_retesting:false."

@@ -215,6 +215,8 @@ class ItemIn(BaseModel):
     image_base64: Optional[str] = None
     active: bool = True
     commission: float = 0.0  # ₹ per unit credited to referrer when approved
+    sample_url: Optional[str] = None
+    sample_image_base64: Optional[str] = None
 
 
 class VideoIn(BaseModel):

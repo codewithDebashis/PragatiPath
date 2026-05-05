@@ -95,6 +95,8 @@ function ItemEditor({ item, onClose, onSaved }: any) {
   const [desc, setDesc] = useState('');
   const [price, setPrice] = useState('');
   const [commission, setCommission] = useState('');
+  const [sampleUrl, setSampleUrl] = useState('');
+  const [sampleImg, setSampleImg] = useState('');
   const [type, setType] = useState<Item['item_type']>('course');
   const [img, setImg] = useState('');
   const [active, setActive] = useState(true);
@@ -106,6 +108,8 @@ function ItemEditor({ item, onClose, onSaved }: any) {
     setDesc(item.description || '');
     setPrice(item.price ? String(item.price) : '');
     setCommission(item.commission ? String(item.commission) : '');
+    setSampleUrl(item.sample_url || '');
+    setSampleImg(item.sample_image_base64 || '');
     setType(item.item_type || 'course');
     setImg(item.image_base64 || '');
     setActive(item.active ?? true);
@@ -125,7 +129,7 @@ function ItemEditor({ item, onClose, onSaved }: any) {
     if (!name.trim() || !price) { Alert.alert('Name and price are required'); return; }
     setBusy(true);
     try {
-      const payload = { name, description: desc, price: Number(price), item_type: type, image_base64: img, active, commission: Number(commission || 0) };
+      const payload = { name, description: desc, price: Number(price), item_type: type, image_base64: img, active, commission: Number(commission || 0), sample_url: sampleUrl || undefined, sample_image_base64: sampleImg || undefined };
       if (editingExisting) await api.put(`/admin/items/${item.id}`, payload);
       else await api.post('/admin/items', payload);
       onSaved();
@@ -165,6 +169,33 @@ function ItemEditor({ item, onClose, onSaved }: any) {
 
           <Text style={styles.label}>Referral Commission (₹ per unit, optional)</Text>
           <TextInput testID="item-commission" style={styles.input} value={commission} onChangeText={setCommission} keyboardType="numeric" placeholder="0" placeholderTextColor="#9CA3AF" />
+
+          <Text style={styles.label}>Sample / Preview URL (optional)</Text>
+          <TextInput
+            testID="item-sample-url"
+            style={styles.input}
+            value={sampleUrl}
+            onChangeText={setSampleUrl}
+            placeholder="https://drive.google.com/... or YouTube link"
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>Sample Image (optional)</Text>
+          <TouchableOpacity
+            testID="item-sample-pick"
+            style={styles.pickBtn}
+            onPress={async () => {
+              const r = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (!r.granted) return;
+              const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.5 });
+              if (!res.canceled && res.assets?.[0]?.base64) setSampleImg(res.assets[0].base64);
+            }}
+          >
+            <Ionicons name="document-text" size={20} color={colors.primary} />
+            <Text style={styles.pickTxt}>{sampleImg ? 'Change sample image' : 'Pick sample image'}</Text>
+          </TouchableOpacity>
+          {sampleImg ? <Image source={{ uri: `data:image/jpeg;base64,${sampleImg}` }} style={styles.preview} /> : null}
 
           <Text style={styles.label}>Description</Text>
           <TextInput testID="item-desc" style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]} value={desc} onChangeText={setDesc} multiline placeholderTextColor="#9CA3AF" />
