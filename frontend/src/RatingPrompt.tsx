@@ -3,18 +3,29 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet, AppState, TextInput, A
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './api';
+import { useAuth } from './auth';
 import { colors, radii, shadow } from './theme';
 
-const DISMISS_KEY = 'pp_rating_dismissed';
-const RATED_KEY = 'pp_rated';
+// Per-user keys so multiple parents on the same device each get their own prompt
+const dismissKey = (uid: string) => `pp_rating_dismissed_${uid}`;
+const engagedKey = (uid: string) => `pp_engaged_${uid}`;
 
 export default function RatingPrompt() {
+  const { user } = useAuth();
   const [visible, setVisible] = useState(false);
   const [stars, setStars] = useState(0);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const wasBackgroundedRef = useRef(false);
   const checkingRef = useRef(false);
+
+  // Reset internal state if user changes (logout/login as different user)
+  useEffect(() => {
+    setVisible(false);
+    setStars(0);
+    setMsg('');
+    wasBackgroundedRef.current = false;
+  }, [user?.id]);
 
   // Web visibility-based "background" detection
   useEffect(() => {
@@ -29,7 +40,8 @@ export default function RatingPrompt() {
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Native AppState
   useEffect(() => {
@@ -42,19 +54,22 @@ export default function RatingPrompt() {
       }
     });
     return () => sub.remove();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const maybeShow = async () => {
     if (visible || checkingRef.current) return;
+    if (!user?.id) return; // only for logged-in parents
+    if (user.role === 'admin') return; // never show to admins
     checkingRef.current = true;
     try {
-      const dismissed = await AsyncStorage.getItem(DISMISS_KEY);
-      const ratedLocal = await AsyncStorage.getItem(RATED_KEY);
-      if (dismissed === '1' || ratedLocal === '1') return;
-      // Verify with server (source of truth)
-      const r = await api.get('/feedback/me/rated');
-      if (r.data?.rated) {
-        await AsyncStorage.setItem(RATED_KEY, '1');
+      const dismissed = await AsyncStorage.getItem(dismissKey(user.id));
+      const engagedLocal = await AsyncStorage.getItem(engagedKey(user.id));
+      if (dismissed === '1' || engagedLocal === '1') return;
+      // Verify with server (source of truth, per-user)
+      const r = await api.get('/feedback/me/engaged');
+      if (r.data?.engaged) {
+        await AsyncStorage.setItem(engagedKey(user.id), '1');
         return;
       }
       setStars(0);
@@ -69,10 +84,11 @@ export default function RatingPrompt() {
 
   const submit = async () => {
     if (!stars) { Alert.alert('Please select a star rating'); return; }
+    if (!user?.id) return;
     setBusy(true);
     try {
       await api.post('/feedback', { type: 'rating', rating: stars, message: msg || undefined });
-      await AsyncStorage.setItem(RATED_KEY, '1');
+      await AsyncStorage.setItem(engagedKey(user.id), '1');
       setVisible(false);
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail || e.message || 'Could not submit');
@@ -80,7 +96,7 @@ export default function RatingPrompt() {
   };
 
   const dismissForever = async () => {
-    await AsyncStorage.setItem(DISMISS_KEY, '1');
+    if (user?.id) await AsyncStorage.setItem(dismissKey(user.id), '1');
     setVisible(false);
   };
 

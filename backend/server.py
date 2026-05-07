@@ -1104,6 +1104,14 @@ async def has_rated(user: dict = Depends(get_current_user)):
     return {"rated": bool(existing), "rating": existing.get("rating") if existing else None}
 
 
+@api_router.get("/feedback/me/engaged")
+async def has_engaged(user: dict = Depends(get_current_user)):
+    """Returns True if the user has submitted ANY feedback (rating or suggestion).
+    Used by the rating popup so we don't pester users who already gave feedback."""
+    any_doc = await db.feedbacks.find_one({"user_id": user["id"]}, {"_id": 0, "type": 1})
+    return {"engaged": bool(any_doc)}
+
+
 @api_router.get("/feedback/me")
 async def my_feedback(user: dict = Depends(get_current_user)):
     items = await db.feedbacks.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)

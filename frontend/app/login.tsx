@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/auth';
 import { colors, radii, shadow } from '../src/theme';
 
@@ -83,8 +84,12 @@ export default function Login() {
               </Link>
             </View>
 
-            <View style={styles.adminHint}>
-              <Text style={styles.adminHintText}>Admin login: use admin email & password set by your school.</Text>
+            <View style={styles.quoteCard}>
+              <Ionicons name="sparkles" size={16} color={colors.secondary} />
+              <Text style={styles.quoteText}>
+                "Education is the most powerful weapon which you can use to change the world."
+              </Text>
+              <Text style={styles.quoteAuthor}>— Pragati Path · Designed for Winners</Text>
             </View>
           </View>
         </ScrollView>
@@ -110,6 +115,7 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 16 },
   muted: { color: colors.textSecondary },
   link: { color: colors.secondary, fontWeight: '700' },
-  adminHint: { marginTop: 18, padding: 12, backgroundColor: '#FFF7E6', borderRadius: 10 },
-  adminHintText: { color: '#92400E', fontSize: 12 },
+  quoteCard: { marginTop: 20, padding: 16, backgroundColor: '#0E2A4F', borderRadius: 14, alignItems: 'center', gap: 6 },
+  quoteText: { color: '#fff', fontSize: 14, fontWeight: '600', textAlign: 'center', lineHeight: 20, fontStyle: 'italic' },
+  quoteAuthor: { color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginTop: 4 },
 });

@@ -3,13 +3,16 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, formatApiError } from '../src/api';
+import { useAuth } from '../src/auth';
 import { colors, radii, shadow } from '../src/theme';
 
 type Feedback = { id: string; type: 'rating' | 'suggestion'; rating?: number; message?: string; created_at: string };
 
 export default function SuggestionsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [list, setList] = useState<Feedback[]>([]);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -25,6 +28,8 @@ export default function SuggestionsScreen() {
     setBusy(true);
     try {
       await api.post('/feedback', { type: 'suggestion', message: msg.trim() });
+      // Mark this user as engaged so the rating popup won't bug them again
+      if (user?.id) await AsyncStorage.setItem(`pp_engaged_${user.id}`, '1');
       setMsg('');
       await load();
       Alert.alert('Thank you!', 'Your suggestion has been sent to the admin team.');
