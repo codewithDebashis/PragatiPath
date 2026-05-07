@@ -217,6 +217,7 @@ class ItemIn(BaseModel):
     commission: float = 0.0  # ₹ per unit credited to referrer when approved
     sample_url: Optional[str] = None
     sample_image_base64: Optional[str] = None
+    coming_soon: bool = False  # If true, parents see badge & cannot add to cart
 
 
 class VideoIn(BaseModel):
@@ -480,6 +481,8 @@ async def create_payment(body: PaymentCreateIn, user: dict = Depends(get_current
         it = by_id.get(ci.item_id)
         if not it:
             raise HTTPException(status_code=400, detail=f"Item {ci.item_id} not available")
+        if it.get("coming_soon"):
+            raise HTTPException(status_code=400, detail=f"'{it.get('name')}' is coming soon and cannot be purchased yet")
         qty = max(1, int(ci.qty))
         line_total = float(it["price"]) * qty
         total += line_total

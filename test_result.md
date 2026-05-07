@@ -105,6 +105,21 @@
 user_problem_statement: "Verify the View Sample / item description feature on the Pragati Path coaching centre app. Admin should be able to add items (notes/study materials/courses) with description, sample_url and sample_image_base64. Parents in the Shop should see description + a 'View Sample' button that opens the URL or previews the image before paying. Also ensure no regression in existing shop/payments/auth flow."
 
 backend:
+  - task: "Items 'coming_soon' field + payment guard"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Added coming_soon: bool = False to ItemIn model. POST/PUT /api/admin/items persist + return it. /api/payments now rejects (HTTP 400) if any line item has coming_soon=true. Seeded Olympiad Booster as coming_soon for demo."
+        - working: true
+          agent: "testing"
+          comment: "Verified end-to-end via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 14/14 assertions passed. (TC1) POST /api/admin/items with coming_soon=true returns 200 and response.coming_soon===true. (TC2) PUT /api/admin/items/{id} toggles coming_soon:false then back to true correctly. (TC3) GET /api/admin/items lists the new item with coming_soon flag. (TC4) GET /api/items (parent JWT) returns the item (since active=true) and includes coming_soon=true in the payload. (TC5) Backward compat: POST without coming_soon defaults to false. (TC6) Parent POST /api/payments with only the coming_soon item returns HTTP 400 with detail \"'...' is coming soon and cannot be purchased yet\". (TC7) Mixed cart (one normal + one coming_soon) also returns 400 and rejects the entire payment. (TC8) Regression: payment with only a normal active item returns 200 with status=pending and amount computed from catalog (499×2=998). Cleanup DELETE for both created test items returned 200. No regressions observed."
+
   - task: "Items CRUD with description, sample_url, sample_image_base64"
     implemented: true
     working: true
@@ -168,14 +183,15 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Items CRUD with description, sample_url, sample_image_base64"
-    - "Regression – Auth, Payments, Shop flow"
+    - "Items 'coming_soon' field + payment guard"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Please test the Items API changes end-to-end: (1) Admin login with admin@pragatipath.com / Admin@123. (2) POST /api/admin/items with description, sample_url, sample_image_base64 – verify GET /api/admin/items and parent GET /api/items return those fields. (3) PUT /api/admin/items/{id} updates the fields. (4) Also regression-test the core flow: parent register, login, fetch /api/items, create a payment referencing the new item via POST /api/payments, admin approve via /api/admin/payments/{id}/decide. Credentials: /app/memory/test_credentials.md."
+      message: "Added new boolean field 'coming_soon' to Item schema. Tasks to test: (1) POST /api/admin/items with coming_soon=true is saved + GET returns it. (2) PUT /api/admin/items/{id} can toggle coming_soon. (3) GET /api/items (parent) returns coming_soon flag. (4) POST /api/payments referencing a coming_soon item must return 400 with 'coming soon and cannot be purchased yet' detail. (5) Regression: payment with normal items still works. Use admin@pragatipath.com/Admin@123 and any registered parent. The seeded 'Olympiad Booster' item already has coming_soon=true."
     - agent: "testing"
       message: "Backend testing complete via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 21/21 assertions passed. Items CRUD (description, sample_url, sample_image_base64) verified on POST/GET(admin)/GET(parent)/PUT/DELETE plus backward-compat POST without the new optional fields. Regression auth+payments+shop flow passed: admin login, parent register, parent login, /auth/me, /children/me, /items, POST /payments (amount computed correctly from catalog), /admin/payments?status=pending lists the payment, /admin/payments/{id}/decide approve flips status and creates 'Payment Approved' notification visible at /notifications/me. No issues found. Both backend tasks set to working:true, needs_retesting:false."
+    - agent: "testing"
+      message: "coming_soon feature + payment guard verified end-to-end. 14/14 assertions passed against external EXPO_PUBLIC_BACKEND_URL/api. Admin login OK. POST /api/admin/items with coming_soon=true persists and returns the flag (TC1). PUT /api/admin/items/{id} toggles coming_soon false↔true (TC2). GET /api/admin/items and GET /api/items (parent JWT) both return the flag (TC3, TC4). Backward compat: POST without coming_soon defaults to false (TC5). Payment guard: POST /api/payments with only a coming_soon item → HTTP 400, detail=\"'<name>' is coming soon and cannot be purchased yet\" (TC6). Mixed cart with one normal + one coming_soon item → HTTP 400, entire payment rejected (TC7). Regression: payment with only a normal active item → HTTP 200, status=pending, amount correctly computed from catalog (499×2=998) (TC8). Cleanup DELETE for both created test items returned 200. Task now working:true, needs_retesting:false. No further action needed for this backend feature."

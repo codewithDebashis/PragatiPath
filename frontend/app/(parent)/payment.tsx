@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api, formatApiError } from '../../src/api';
 import { colors, radii, shadow } from '../../src/theme';
 
-type Item = { id: string; name: string; description?: string; price: number; item_type: string; image_base64?: string; sample_url?: string; sample_image_base64?: string };
+type Item = { id: string; name: string; description?: string; price: number; item_type: string; image_base64?: string; sample_url?: string; sample_image_base64?: string; coming_soon?: boolean };
 type Upi = { upi_id: string; qr_image_base64?: string; instructions?: string };
 type Child = { id: string; name: string; child_class?: string; enrollment_status?: string };
 type Payment = { id: string; amount: number; status: string; utr?: string; created_at: string; items?: any[]; child_name?: string };
@@ -80,14 +80,22 @@ export default function ShopPay() {
               <Text style={styles.section}>{TYPE_LABELS[type] || type}</Text>
             </View>
             {list.map((it) => (
-              <View key={it.id} style={styles.itemCard} testID={`item-${it.id}`}>
-                {it.image_base64 ? (
-                  <Image source={{ uri: `data:image/jpeg;base64,${it.image_base64}` }} style={styles.itemImg} />
-                ) : (
-                  <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }]}>
-                    <Ionicons name={it.item_type === 'course' ? 'book' : it.item_type === 'merch' ? 'shirt' : 'document-text'} size={28} color={colors.primary} />
-                  </View>
-                )}
+              <View key={it.id} style={[styles.itemCard, it.coming_soon && styles.itemCardSoon]} testID={`item-${it.id}`}>
+                <View style={{ position: 'relative' }}>
+                  {it.image_base64 ? (
+                    <Image source={{ uri: `data:image/jpeg;base64,${it.image_base64}` }} style={styles.itemImg} />
+                  ) : (
+                    <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Ionicons name={it.item_type === 'course' ? 'book' : it.item_type === 'merch' ? 'shirt' : 'document-text'} size={28} color={colors.primary} />
+                    </View>
+                  )}
+                  {it.coming_soon ? (
+                    <View style={styles.csRibbon} testID={`coming-soon-${it.id}`}>
+                      <Ionicons name="time-outline" size={11} color="#fff" />
+                      <Text style={styles.csRibbonTxt}>SOON</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName}>{it.name}</Text>
                   {it.description ? <Text style={styles.itemDesc}>{it.description}</Text> : null}
@@ -119,7 +127,12 @@ export default function ShopPay() {
                     </TouchableOpacity>
                   ) : null}
                 </View>
-                {cart[it.id] ? (
+                {it.coming_soon ? (
+                  <View style={styles.csPill} testID={`coming-soon-pill-${it.id}`}>
+                    <Ionicons name="time" size={13} color="#92400E" />
+                    <Text style={styles.csPillTxt}>Coming Soon</Text>
+                  </View>
+                ) : cart[it.id] ? (
                   <View style={styles.qty}>
                     <TouchableOpacity testID={`sub-${it.id}`} onPress={() => sub(it.id)} style={styles.qtyBtn}><Ionicons name="remove" size={18} color="#fff" /></TouchableOpacity>
                     <Text style={styles.qtyN}>{cart[it.id]}</Text>
@@ -390,6 +403,11 @@ const styles = StyleSheet.create({
   badgeTxt: { color: '#fff', fontSize: 10, fontWeight: '800' },
   sampleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 100, backgroundColor: '#EFF6FF', marginTop: 8 },
   sampleTxt: { color: colors.primary, fontWeight: '700', fontSize: 12 },
+  itemCardSoon: { borderWidth: 1, borderColor: '#FCD34D', backgroundColor: '#FFFBEB' },
+  csRibbon: { position: 'absolute', top: 4, left: 4, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#F59E0B', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  csRibbonTxt: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  csPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 100 },
+  csPillTxt: { color: '#92400E', fontWeight: '800', fontSize: 11 },
   previewBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
   previewBox: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   previewHead: { position: 'absolute', top: 40, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 },

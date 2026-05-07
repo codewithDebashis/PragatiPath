@@ -9,7 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { api, formatApiError } from '../../src/api';
 import { colors, radii, shadow } from '../../src/theme';
 
-type Item = { id: string; name: string; description?: string; price: number; item_type: 'course' | 'material' | 'merch' | 'other'; image_base64?: string; active: boolean };
+type Item = { id: string; name: string; description?: string; price: number; item_type: 'course' | 'material' | 'merch' | 'other'; image_base64?: string; active: boolean; coming_soon?: boolean };
 
 const TYPES: Array<{ key: Item['item_type']; label: string }> = [
   { key: 'course', label: 'Course' },
@@ -64,7 +64,10 @@ export default function AdminItems() {
           <View key={it.id} style={styles.card} testID={`item-row-${it.id}`}>
             {it.image_base64 ? <Image source={{ uri: `data:image/jpeg;base64,${it.image_base64}` }} style={styles.img} /> : null}
             <View style={styles.body}>
-              <View style={styles.typeBadge}><Text style={styles.typeTxt}>{(it.item_type || '').toUpperCase()}</Text></View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <View style={styles.typeBadge}><Text style={styles.typeTxt}>{(it.item_type || '').toUpperCase()}</Text></View>
+                {it.coming_soon ? <View style={styles.csBadge}><Text style={styles.csTxt}>COMING SOON</Text></View> : null}
+              </View>
               <Text style={styles.name}>{it.name}</Text>
               {it.description ? <Text style={styles.desc}>{it.description}</Text> : null}
               <Text style={styles.price}>₹{it.price}</Text>
@@ -97,6 +100,7 @@ function ItemEditor({ item, onClose, onSaved }: any) {
   const [commission, setCommission] = useState('');
   const [sampleUrl, setSampleUrl] = useState('');
   const [sampleImg, setSampleImg] = useState('');
+  const [comingSoon, setComingSoon] = useState(false);
   const [type, setType] = useState<Item['item_type']>('course');
   const [img, setImg] = useState('');
   const [active, setActive] = useState(true);
@@ -110,6 +114,7 @@ function ItemEditor({ item, onClose, onSaved }: any) {
     setCommission(item.commission ? String(item.commission) : '');
     setSampleUrl(item.sample_url || '');
     setSampleImg(item.sample_image_base64 || '');
+    setComingSoon(item.coming_soon ?? false);
     setType(item.item_type || 'course');
     setImg(item.image_base64 || '');
     setActive(item.active ?? true);
@@ -129,7 +134,7 @@ function ItemEditor({ item, onClose, onSaved }: any) {
     if (!name.trim() || !price) { Alert.alert('Name and price are required'); return; }
     setBusy(true);
     try {
-      const payload = { name, description: desc, price: Number(price), item_type: type, image_base64: img, active, commission: Number(commission || 0), sample_url: sampleUrl || undefined, sample_image_base64: sampleImg || undefined };
+      const payload = { name, description: desc, price: Number(price), item_type: type, image_base64: img, active, commission: Number(commission || 0), sample_url: sampleUrl || undefined, sample_image_base64: sampleImg || undefined, coming_soon: comingSoon };
       if (editingExisting) await api.put(`/admin/items/${item.id}`, payload);
       else await api.post('/admin/items', payload);
       onSaved();
@@ -212,6 +217,14 @@ function ItemEditor({ item, onClose, onSaved }: any) {
             <Switch testID="item-active" value={active} onValueChange={setActive} trackColor={{ true: colors.success, false: colors.border }} />
           </View>
 
+          <View style={[styles.activeRow, { marginTop: 8 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Coming soon</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>Show to parents but disable purchase</Text>
+            </View>
+            <Switch testID="item-coming-soon" value={comingSoon} onValueChange={setComingSoon} trackColor={{ true: colors.warning || '#F59E0B', false: colors.border }} />
+          </View>
+
           <TouchableOpacity testID="save-item" style={[styles.saveBtn, busy && { opacity: 0.6 }]} onPress={save} disabled={busy}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveTxt}>Save</Text>}
           </TouchableOpacity>
@@ -250,4 +263,6 @@ const styles = StyleSheet.create({
   preview: { width: '100%', height: 160, borderRadius: 12, marginTop: 12 },
   saveBtn: { backgroundColor: colors.primary, padding: 16, borderRadius: radii.button, alignItems: 'center', marginTop: 24 },
   saveTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  csBadge: { alignSelf: 'flex-start', backgroundColor: '#F59E0B', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  csTxt: { color: '#fff', fontWeight: '800', fontSize: 10, letterSpacing: 1 },
 });
