@@ -53,6 +53,7 @@ export default function Profile() {
           <Link icon="calendar" label="Attendance" onPress={() => router.push('/attendance')} testID="link-attendance" />
           <Link icon="receipt" label="Receipts" onPress={() => router.push('/(parent)/payment')} testID="link-receipts" />
           <Link icon="wallet" label="Wallet & Refer" onPress={() => router.push('/wallet')} testID="link-wallet" />
+          <Link icon="chatbubble-ellipses" label="Suggestions & Feedback" onPress={() => router.push('/suggestions')} testID="link-suggestions" />
         </View>
 
         <View style={styles.card}>

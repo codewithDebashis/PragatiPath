@@ -1,254 +1,248 @@
-"""
-Backend tests for Pragati Path - focus: Items 'coming_soon' field + payment guard.
+"""Backend tests for Pragati Path Feedback API.
 
-Runs against the external backend URL from /app/frontend/.env
-(EXPO_PUBLIC_BACKEND_URL) with /api prefix.
+Focus task: "Feedback API – ratings + suggestions + admin view"
 """
-
 import os
 import sys
 import uuid
-import time
+import json
 import requests
-from pathlib import Path
 
-# Load backend URL from frontend/.env
-FRONTEND_ENV = Path("/app/frontend/.env")
-BACKEND_URL = None
-for line in FRONTEND_ENV.read_text().splitlines():
-    if line.startswith("EXPO_PUBLIC_BACKEND_URL="):
-        BACKEND_URL = line.split("=", 1)[1].strip().strip('"')
-        break
+# Resolve backend base URL from the frontend env file (per instructions)
+FRONTEND_ENV = "/app/frontend/.env"
+BASE = None
+with open(FRONTEND_ENV, "r") as f:
+    for ln in f:
+        ln = ln.strip()
+        if ln.startswith("EXPO_PUBLIC_BACKEND_URL="):
+            BASE = ln.split("=", 1)[1].strip().strip('"').strip("'")
+            break
+if not BASE:
+    print("ERROR: EXPO_PUBLIC_BACKEND_URL not found in", FRONTEND_ENV)
+    sys.exit(2)
 
-assert BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL not found in /app/frontend/.env"
-BASE = BACKEND_URL.rstrip("/") + "/api"
-print(f"Testing backend at: {BASE}")
+API = BASE.rstrip("/") + "/api"
+print(f"Testing against: {API}")
 
 ADMIN_EMAIL = "admin@pragatipath.com"
 ADMIN_PASSWORD = "Admin@123"
 
-results = []
+results = []  # list of (ok, name, detail)
 
 
-def record(name, ok, detail=""):
-    status = "PASS" if ok else "FAIL"
-    print(f"[{status}] {name}  {detail}")
-    results.append((name, ok, detail))
+def record(ok: bool, name: str, detail: str = ""):
+    results.append((ok, name, detail))
+    marker = "PASS" if ok else "FAIL"
+    print(f"[{marker}] {name} {('- ' + detail) if detail else ''}")
 
 
-def post(path, json=None, token=None, expected=200):
-    h = {"Authorization": f"Bearer {token}"} if token else {}
-    r = requests.post(BASE + path, json=json, headers=h, timeout=30)
-    return r
+def auth_headers(tok: str):
+    return {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
 
 
-def put(path, json=None, token=None):
-    h = {"Authorization": f"Bearer {token}"} if token else {}
-    return requests.put(BASE + path, json=json, headers=h, timeout=30)
+def post(path, payload, token=None):
+    hdr = auth_headers(token) if token else {"Content-Type": "application/json"}
+    return requests.post(API + path, headers=hdr, data=json.dumps(payload), timeout=30)
 
 
-def get(path, token=None, params=None):
-    h = {"Authorization": f"Bearer {token}"} if token else {}
-    return requests.get(BASE + path, headers=h, params=params, timeout=30)
+def get(path, token=None):
+    hdr = auth_headers(token) if token else {}
+    return requests.get(API + path, headers=hdr, timeout=30)
 
 
-def delete(path, token=None):
-    h = {"Authorization": f"Bearer {token}"} if token else {}
-    return requests.delete(BASE + path, headers=h, timeout=30)
+# ---- 0. Admin login ----
+r = post("/auth/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+if r.status_code != 200:
+    print("Admin login failed:", r.status_code, r.text)
+    sys.exit(2)
+admin_token = r.json()["token"]
+print("Admin login OK.")
+
+# ---- Register a fresh parent for isolated testing ----
+unique = uuid.uuid4().hex[:8]
+parent_email = f"feedback.parent.{unique}@test.com"
+parent_password = "FeedbackTest@123"
+reg_body = {
+    "email": parent_email,
+    "password": parent_password,
+    "name": f"Feedback Parent {unique}",
+    "phone": "9876500000",
+    "child_name": f"Child {unique}",
+    "child_age": 9,
+    "child_class": "4",
+}
+r = post("/auth/register", reg_body)
+if r.status_code != 200:
+    print("Parent register failed:", r.status_code, r.text)
+    sys.exit(2)
+parent_token = r.json()["token"]
+parent_user = r.json()["user"]
+print(f"Registered fresh parent: {parent_email}")
 
 
-def main():
-    created_item_ids = []
-    try:
-        # --- 1. Admin login ---
-        r = post("/auth/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
-        assert r.status_code == 200, f"Admin login failed: {r.status_code} {r.text}"
-        admin_token = r.json()["token"]
-        record("Admin login", True)
+# ---- 1. Auth: GET /api/feedback/me without token → 401 ----
+r = get("/feedback/me")
+record(r.status_code == 401, "1. GET /feedback/me without token returns 401",
+       f"got {r.status_code}: {r.text[:120]}")
 
-        # --- Register a fresh parent ---
-        suffix = uuid.uuid4().hex[:8]
-        parent_email = f"parent_cs_{suffix}@test.com"
-        parent_password = "Parent@123"
-        reg_body = {
-            "email": parent_email,
-            "password": parent_password,
-            "name": "Riya Sharma",
-            "phone": "9999900000",
-            "child_name": "Aarav Sharma",
-            "child_age": 9,
-            "child_class": "4",
-        }
-        r = post("/auth/register", reg_body)
-        assert r.status_code == 200, f"Parent register failed: {r.status_code} {r.text}"
-        parent_token = r.json()["token"]
-        parent_user_id = r.json()["user"]["id"]
-        record("Parent register", True, f"email={parent_email}")
 
-        # Fetch child id
-        r = get("/children/me", token=parent_token)
-        assert r.status_code == 200 and len(r.json()) >= 1, f"children/me: {r.status_code} {r.text}"
-        child_id = r.json()[0]["id"]
-        record("Fetch parent child", True, f"child_id={child_id[:8]}")
+# ---- 2. Parent submits rating ----
+r = post("/feedback", {"type": "rating", "rating": 4, "message": "Nice"}, token=parent_token)
+ok2 = r.status_code == 200 and r.json().get("ok") is True
+record(ok2, "2. POST /feedback rating=4 returns 200 ok:true",
+       f"status={r.status_code} body={r.text[:200]}")
 
-        # --- 2. Admin creates coming_soon item ---
-        cs_item_payload = {
-            "name": f"Advanced Robotics Workshop {suffix}",
-            "description": "Hands-on robotics for senior grades.",
-            "price": 2499.0,
-            "item_type": "course",
-            "coming_soon": True,
-            "active": True,
-        }
-        r = post("/admin/items", cs_item_payload, token=admin_token)
-        assert r.status_code == 200, f"Create coming_soon item failed: {r.status_code} {r.text}"
-        cs_item = r.json()
-        cs_item_id = cs_item["id"]
-        created_item_ids.append(cs_item_id)
-        assert cs_item.get("coming_soon") is True, f"coming_soon not true in response: {cs_item}"
-        record("TC1 POST /admin/items coming_soon=true returns coming_soon=true", True)
 
-        # --- 3. PUT toggle coming_soon=false then true ---
-        toggled = dict(cs_item_payload)
-        toggled["coming_soon"] = False
-        r = put(f"/admin/items/{cs_item_id}", toggled, token=admin_token)
-        assert r.status_code == 200, f"PUT toggle false failed: {r.status_code} {r.text}"
-        assert r.json().get("coming_soon") is False, f"Expected coming_soon=false, got {r.json()}"
-        record("TC2a PUT coming_soon=false -> false", True)
+# ---- 3. GET /feedback/me/rated → rated:true, rating:4 ----
+r = get("/feedback/me/rated", token=parent_token)
+body3 = r.json() if r.status_code == 200 else {}
+ok3 = r.status_code == 200 and body3.get("rated") is True and body3.get("rating") == 4
+record(ok3, "3. GET /feedback/me/rated returns rated=true rating=4",
+       f"status={r.status_code} body={body3}")
 
-        toggled["coming_soon"] = True
-        r = put(f"/admin/items/{cs_item_id}", toggled, token=admin_token)
-        assert r.status_code == 200, f"PUT toggle true failed: {r.status_code} {r.text}"
-        assert r.json().get("coming_soon") is True, f"Expected coming_soon=true, got {r.json()}"
-        record("TC2b PUT coming_soon=true -> true", True)
 
-        # --- 4. GET /admin/items ---
-        r = get("/admin/items", token=admin_token)
-        assert r.status_code == 200
-        found = next((it for it in r.json() if it["id"] == cs_item_id), None)
-        assert found is not None, "Newly created item not present in /admin/items"
-        assert found.get("coming_soon") is True, f"coming_soon flag missing or wrong: {found}"
-        record("TC3 GET /admin/items contains coming_soon item with flag", True)
+# ---- 4. Idempotent: re-submit rating=5 ----
+r = post("/feedback", {"type": "rating", "rating": 5, "message": "Even better"}, token=parent_token)
+ok4a = r.status_code == 200
+record(ok4a, "4a. POST /feedback rating=5 replaces existing rating (200)",
+       f"status={r.status_code}")
 
-        # --- 5. GET /items (parent) ---
-        r = get("/items", token=parent_token)
-        assert r.status_code == 200
-        found_p = next((it for it in r.json() if it["id"] == cs_item_id), None)
-        assert found_p is not None, "coming_soon item not visible to parent via /items"
-        assert "coming_soon" in found_p and found_p["coming_soon"] is True, \
-            f"coming_soon field missing/wrong in parent view: {found_p}"
-        record("TC4 GET /items (parent) returns coming_soon=true flag", True)
+r = get("/feedback/me/rated", token=parent_token)
+body4 = r.json() if r.status_code == 200 else {}
+ok4b = body4.get("rated") is True and body4.get("rating") == 5
+record(ok4b, "4b. GET /feedback/me/rated returns rated=true rating=5 after update",
+       f"body={body4}")
 
-        # --- 6. Backward compat: POST without coming_soon ---
-        normal_item_payload = {
-            "name": f"Math Notes Grade 4 {suffix}",
-            "description": "Curriculum-aligned notes.",
-            "price": 499.0,
-            "item_type": "material",
-            "active": True,
-        }
-        r = post("/admin/items", normal_item_payload, token=admin_token)
-        assert r.status_code == 200, f"Create normal item failed: {r.status_code} {r.text}"
-        normal_item = r.json()
-        normal_item_id = normal_item["id"]
-        created_item_ids.append(normal_item_id)
-        assert normal_item.get("coming_soon") is False, \
-            f"Default coming_soon expected False, got {normal_item.get('coming_soon')}"
-        record("TC5 POST without coming_soon defaults to false", True)
+# admin view filtered by rating should show ONE rating row from this user with rating=5
+r = get("/admin/feedback?type=rating", token=admin_token)
+admin_rating_body = r.json() if r.status_code == 200 else {}
+items_for_user = [it for it in admin_rating_body.get("items", []) if it.get("user_id") == parent_user["id"]]
+ok4c = (
+    r.status_code == 200
+    and len(items_for_user) == 1
+    and items_for_user[0].get("rating") == 5
+    and items_for_user[0].get("type") == "rating"
+)
+record(ok4c, "4c. Admin /admin/feedback?type=rating shows ONE rating row from this user with rating=5",
+       f"count={len(items_for_user)} rows_for_user={items_for_user}")
 
-        # --- 7. Payment guard: only coming_soon item -> 400 ---
-        r = post(
-            "/payments",
-            {
-                "items": [{"item_id": cs_item_id, "qty": 1}],
-                "child_id": child_id,
-                "utr": "UTRTEST" + suffix,
-            },
-            token=parent_token,
+
+# ---- 5. Validation: POST /feedback {type:rating} (no rating) → 400 ----
+r = post("/feedback", {"type": "rating"}, token=parent_token)
+record(r.status_code == 400, "5. POST /feedback type=rating without rating returns 400",
+       f"status={r.status_code} body={r.text[:200]}")
+
+
+# ---- 6. Validation: rating=6 → 422 or 400 ----
+r = post("/feedback", {"type": "rating", "rating": 6}, token=parent_token)
+record(r.status_code in (400, 422), "6. POST /feedback rating=6 returns 400 or 422",
+       f"status={r.status_code} body={r.text[:200]}")
+
+
+# ---- 7. Suggestion: POST suggestion → 200, listed in /feedback/me ----
+r = post("/feedback", {"type": "suggestion", "message": "Please add Hindi medium"}, token=parent_token)
+ok7a = r.status_code == 200 and r.json().get("ok") is True
+record(ok7a, "7a. POST /feedback suggestion returns 200 ok:true",
+       f"status={r.status_code} body={r.text[:200]}")
+
+r = get("/feedback/me", token=parent_token)
+me_items = r.json() if r.status_code == 200 else []
+has_suggestion = any(
+    it.get("type") == "suggestion" and it.get("message") == "Please add Hindi medium"
+    for it in me_items
+)
+ok7b = r.status_code == 200 and has_suggestion
+record(ok7b, "7b. GET /feedback/me lists the suggestion for this parent",
+       f"status={r.status_code} count={len(me_items) if isinstance(me_items, list) else 'N/A'}")
+
+
+# ---- 8. Suggestion validation: missing message → 400 ----
+r = post("/feedback", {"type": "suggestion"}, token=parent_token)
+record(r.status_code == 400, "8. POST /feedback suggestion without message returns 400",
+       f"status={r.status_code} body={r.text[:200]}")
+
+# bonus: empty whitespace message should also be 400
+r = post("/feedback", {"type": "suggestion", "message": "   "}, token=parent_token)
+record(r.status_code == 400, "8b. POST /feedback suggestion with whitespace-only message returns 400",
+       f"status={r.status_code} body={r.text[:200]}")
+
+
+# ---- 9. Admin blocked from POST /feedback ----
+r = post("/feedback", {"type": "suggestion", "message": "x"}, token=admin_token)
+record(r.status_code == 400, "9. Admin POST /feedback returns 400",
+       f"status={r.status_code} body={r.text[:200]}")
+
+
+# ---- 10. Parent blocked from /admin/feedback → 403 ----
+r = get("/admin/feedback", token=parent_token)
+record(r.status_code == 403, "10. Parent GET /admin/feedback returns 403",
+       f"status={r.status_code} body={r.text[:200]}")
+
+
+# ---- 11. Admin GET /admin/feedback (no filter) ----
+r = get("/admin/feedback", token=admin_token)
+body11 = r.json() if r.status_code == 200 else {}
+items11 = body11.get("items", [])
+ratings_all = [it["rating"] for it in items11 if it.get("type") == "rating" and it.get("rating") is not None]
+expected_avg = round(sum(ratings_all) / len(ratings_all), 2) if ratings_all else None
+expected_count = len(ratings_all)
+
+ok11 = (
+    r.status_code == 200
+    and "items" in body11
+    and "avg_rating" in body11
+    and "rating_count" in body11
+    and body11.get("rating_count") == expected_count
+    and (
+        (expected_avg is None and body11.get("avg_rating") is None)
+        or (
+            expected_avg is not None and body11.get("avg_rating") is not None
+            and abs(float(body11["avg_rating"]) - expected_avg) < 0.01
         )
-        assert r.status_code == 400, f"Expected 400 on coming_soon payment, got {r.status_code} {r.text}"
-        detail = ""
-        try:
-            detail = r.json().get("detail", "")
-        except Exception:
-            detail = r.text
-        assert "coming soon" in detail.lower(), f"Detail should mention 'coming soon', got: {detail}"
-        record("TC6 Payment with coming_soon item -> 400 'coming soon'", True, f"detail={detail}")
-
-        # --- 8. Mixed cart: normal + coming_soon -> 400 ---
-        r = post(
-            "/payments",
-            {
-                "items": [
-                    {"item_id": normal_item_id, "qty": 1},
-                    {"item_id": cs_item_id, "qty": 1},
-                ],
-                "child_id": child_id,
-                "utr": "UTRMIX" + suffix,
-            },
-            token=parent_token,
-        )
-        assert r.status_code == 400, f"Mixed cart expected 400, got {r.status_code} {r.text}"
-        try:
-            mixed_detail = r.json().get("detail", "")
-        except Exception:
-            mixed_detail = r.text
-        assert "coming soon" in mixed_detail.lower(), f"Mixed-cart detail: {mixed_detail}"
-        # Verify no payment record was created for this mixed attempt
-        record("TC7 Mixed cart rejected (400) due to coming_soon", True, f"detail={mixed_detail}")
-
-        # --- 9. Regression: normal-only payment succeeds ---
-        r = post(
-            "/payments",
-            {
-                "items": [{"item_id": normal_item_id, "qty": 2}],
-                "child_id": child_id,
-                "utr": "UTROK" + suffix,
-            },
-            token=parent_token,
-        )
-        assert r.status_code == 200, f"Normal payment failed: {r.status_code} {r.text}"
-        pmt = r.json()
-        assert pmt["status"] == "pending", f"Expected pending, got {pmt.get('status')}"
-        expected_amount = 499.0 * 2
-        assert float(pmt["amount"]) == expected_amount, \
-            f"Amount mismatch expected {expected_amount} got {pmt['amount']}"
-        record("TC8 Normal payment -> 200 pending, correct amount", True, f"amount={pmt['amount']}")
-
-        # confirm payment visible in my_payments
-        r = get("/payments/me", token=parent_token)
-        assert r.status_code == 200
-        assert any(p["id"] == pmt["id"] for p in r.json()), "Payment not in /payments/me"
-
-    except AssertionError as e:
-        record("ASSERTION", False, str(e))
-    except Exception as e:
-        record("EXCEPTION", False, repr(e))
-    finally:
-        # --- Cleanup: DELETE created test items ---
-        # need admin token; re-login in case exception happened before
-        try:
-            r = post("/auth/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
-            if r.status_code == 200:
-                tok = r.json()["token"]
-                for iid in created_item_ids:
-                    dr = delete(f"/admin/items/{iid}", token=tok)
-                    record(f"Cleanup DELETE /admin/items/{iid[:8]}", dr.status_code == 200,
-                           f"status={dr.status_code}")
-        except Exception as e:
-            record("Cleanup", False, repr(e))
-
-    # summary
-    passed = sum(1 for _, ok, _ in results if ok)
-    total = len(results)
-    print(f"\n=== SUMMARY: {passed}/{total} passed ===")
-    if passed != total:
-        print("FAILURES:")
-        for n, ok, d in results:
-            if not ok:
-                print(f"  - {n}: {d}")
-        sys.exit(1)
+    )
+)
+record(ok11, "11. Admin GET /admin/feedback returns items/avg_rating/rating_count with correct aggregation",
+       f"api_avg={body11.get('avg_rating')} expected_avg={expected_avg} "
+       f"api_count={body11.get('rating_count')} expected_count={expected_count}")
 
 
-if __name__ == "__main__":
-    main()
+# ---- 12. Admin GET /admin/feedback?type=suggestion ----
+r = get("/admin/feedback?type=suggestion", token=admin_token)
+body12 = r.json() if r.status_code == 200 else {}
+only_suggestions = all(it.get("type") == "suggestion" for it in body12.get("items", []))
+ok12 = (
+    r.status_code == 200
+    and isinstance(body12.get("items"), list)
+    and only_suggestions
+    and body12.get("avg_rating") is None
+    and body12.get("rating_count") == 0
+)
+record(ok12, "12. Admin GET /admin/feedback?type=suggestion returns only suggestions, avg_rating None",
+       f"items_count={len(body12.get('items', []))} only_suggestions={only_suggestions} "
+       f"avg={body12.get('avg_rating')} rating_count={body12.get('rating_count')}")
+
+has_our_suggestion = any(
+    it.get("user_id") == parent_user["id"] and it.get("message") == "Please add Hindi medium"
+    for it in body12.get("items", [])
+)
+record(has_our_suggestion, "12b. Suggestion from our test parent appears in admin suggestion list")
+
+
+# ---- 13. Admin GET /admin/feedback?type=rating ----
+r = get("/admin/feedback?type=rating", token=admin_token)
+body13 = r.json() if r.status_code == 200 else {}
+only_ratings = all(it.get("type") == "rating" for it in body13.get("items", []))
+ok13 = r.status_code == 200 and only_ratings
+record(ok13, "13. Admin GET /admin/feedback?type=rating returns only rating items",
+       f"count={len(body13.get('items', []))} only_ratings={only_ratings} "
+       f"avg={body13.get('avg_rating')} rating_count={body13.get('rating_count')}")
+
+
+# ---- Summary ----
+passed = sum(1 for ok, *_ in results if ok)
+total = len(results)
+print(f"\n==== RESULT: {passed}/{total} passed ====")
+for ok, name, detail in results:
+    if not ok:
+        print(f"  FAIL: {name} -- {detail}")
+sys.exit(0 if passed == total else 1)

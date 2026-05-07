@@ -250,6 +250,12 @@ class AttendanceIn(BaseModel):
     note: Optional[str] = None
 
 
+class FeedbackIn(BaseModel):
+    type: Literal["rating", "suggestion"]
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    message: Optional[str] = None
+
+
 # ---------------- Auth ----------------
 @api_router.post("/auth/register", response_model=TokenOut)
 async def register(body: RegisterIn):
@@ -1050,6 +1056,80 @@ async def admin_referrals(admin: dict = Depends(require_admin)):
     return items
 
 
+# ---------------- Feedback / Suggestions ----------------
+@api_router.post("/feedback")
+async def submit_feedback(body: FeedbackIn, user: dict = Depends(get_current_user)):
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Admins cannot submit feedback")
+    if body.type == "rating":
+        if not body.rating:
+            raise HTTPException(status_code=400, detail="Rating is required")
+        # ensure idempotent: replace existing rating for the user
+        existing = await db.feedbacks.find_one({"user_id": user["id"], "type": "rating"})
+        doc = {
+            "id": existing["id"] if existing else str(uuid.uuid4()),
+            "user_id": user["id"],
+            "user_name": user.get("name"),
+            "user_email": user.get("email"),
+            "type": "rating",
+            "rating": int(body.rating),
+            "message": (body.message or "").strip() or None,
+            "created_at": now_iso(),
+        }
+        if existing:
+            await db.feedbacks.update_one({"id": existing["id"]}, {"$set": doc})
+        else:
+            await db.feedbacks.insert_one(doc)
+        return {"ok": True, "id": doc["id"]}
+    # suggestion
+    if not (body.message and body.message.strip()):
+        raise HTTPException(status_code=400, detail="Message is required for suggestion")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "user_name": user.get("name"),
+        "user_email": user.get("email"),
+        "type": "suggestion",
+        "rating": None,
+        "message": body.message.strip(),
+        "created_at": now_iso(),
+    }
+    await db.feedbacks.insert_one(doc)
+    return {"ok": True, "id": doc["id"]}
+
+
+@api_router.get("/feedback/me/rated")
+async def has_rated(user: dict = Depends(get_current_user)):
+    existing = await db.feedbacks.find_one({"user_id": user["id"], "type": "rating"}, {"_id": 0, "rating": 1, "created_at": 1})
+    return {"rated": bool(existing), "rating": existing.get("rating") if existing else None}
+
+
+@api_router.get("/feedback/me")
+async def my_feedback(user: dict = Depends(get_current_user)):
+    items = await db.feedbacks.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return items
+
+
+@api_router.get("/admin/feedback")
+async def admin_feedback(
+    type: Optional[str] = None,
+    admin: dict = Depends(require_admin),
+):
+    q: dict = {}
+    if type in ("rating", "suggestion"):
+        q["type"] = type
+    items = await db.feedbacks.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # aggregate average rating
+    avg = None
+    count_rating = 0
+    if not type or type == "rating":
+        ratings = [it["rating"] for it in items if it.get("type") == "rating" and it.get("rating")]
+        if ratings:
+            avg = round(sum(ratings) / len(ratings), 2)
+            count_rating = len(ratings)
+    return {"items": items, "avg_rating": avg, "rating_count": count_rating}
+
+
 @api_router.get("/")
 async def root():
     return {"message": "Pragati Path API", "ok": True}
@@ -1067,6 +1147,8 @@ async def startup():
     await db.transactions.create_index("user_id")
     await db.users.create_index("user_id_code")
     await db.users.create_index("referrer_id")
+    await db.feedbacks.create_index([("user_id", 1), ("type", 1)])
+    await db.feedbacks.create_index("created_at")
 
     admin_email = os.environ["ADMIN_EMAIL"].lower().strip()
     admin_password = os.environ["ADMIN_PASSWORD"]

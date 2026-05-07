@@ -4,6 +4,7 @@ import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../../src/auth';
 import { colors } from '../../src/theme';
 import { useUnreadCount } from '../../src/useUnreadCount';
+import RatingPrompt from '../../src/RatingPrompt';
 
 export default function ParentLayout() {
   const { user, loading } = useAuth();
@@ -13,6 +14,7 @@ export default function ParentLayout() {
   if (user.role === 'admin') return <Redirect href="/(admin)/dashboard" />;
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -43,6 +45,8 @@ export default function ParentLayout() {
       />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} /> }} />
     </Tabs>
+    <RatingPrompt />
+    </>
   );
 }
 

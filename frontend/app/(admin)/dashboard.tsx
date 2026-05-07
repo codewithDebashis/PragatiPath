@@ -58,6 +58,7 @@ export default function AdminDashboard() {
         <Tile title="Advertisements" sub="Add, edit, or remove announcements" icon="megaphone" onPress={() => router.push('/(admin)/ads')} testID="tile-ads" />
         <Tile title="UPI / QR Settings" sub="Set UPI ID, QR image, and instructions" icon="qr-code" onPress={() => router.push('/(admin)/upi')} testID="tile-upi" />
         <Tile title="Users Directory" sub="View all registered parents & children" icon="people" onPress={() => router.push('/(admin)/users')} testID="tile-users" />
+        <Tile title="User Feedback" sub="Ratings & suggestions from parents" icon="chatbubbles" onPress={() => router.push('/(admin)/feedback')} testID="tile-feedback" />
         <Tile title="Auto-message Template" sub="Edit the welcome message template" icon="text" onPress={() => router.push('/(admin)/template')} testID="tile-template" />
       </ScrollView>
     </SafeAreaView>

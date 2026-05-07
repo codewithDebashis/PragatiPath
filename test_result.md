@@ -105,6 +105,21 @@
 user_problem_statement: "Verify the View Sample / item description feature on the Pragati Path coaching centre app. Admin should be able to add items (notes/study materials/courses) with description, sample_url and sample_image_base64. Parents in the Shop should see description + a 'View Sample' button that opens the URL or previews the image before paying. Also ensure no regression in existing shop/payments/auth flow."
 
 backend:
+  - task: "Feedback API – ratings + suggestions + admin view"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Added Feedback model + endpoints. POST /api/feedback (type=rating|suggestion); GET /api/feedback/me/rated returns {rated:bool}; GET /api/feedback/me; GET /api/admin/feedback?type= with avg_rating + rating_count. Rating is idempotent per user (one rating per user, updates on resubmit). Admin route requires admin role. Admins are blocked from POST /api/feedback."
+        - working: true
+          agent: "testing"
+          comment: "Feedback API fully verified via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 18/18 assertions passed. (1) GET /api/feedback/me without Authorization header → 401 'Not authenticated'. (2) Parent POST /api/feedback {type:'rating',rating:4,message:'Nice'} → 200 {ok:true,id}. (3) GET /api/feedback/me/rated → {rated:true, rating:4}. (4a/4b) Re-submitting {type:'rating',rating:5,'Even better'} replaced the existing rating (same doc id reused), GET /api/feedback/me/rated returns rating=5. (4c) Admin /api/admin/feedback?type=rating shows exactly ONE rating row for the test parent with rating=5 (idempotency confirmed). (5) POST /api/feedback {type:'rating'} without rating → 400 'Rating is required'. (6) POST rating=6 → 422 (pydantic le=5 constraint) — acceptable per spec. (7a/7b) Suggestion POST → 200, appears in GET /api/feedback/me. (8/8b) Suggestion without message OR with whitespace-only message → 400 'Message is required for suggestion'. (9) Admin POST /api/feedback → 400 'Admins cannot submit feedback'. (10) Parent GET /api/admin/feedback → 403 'Admin access required'. (11) Admin GET /api/admin/feedback returns {items, avg_rating, rating_count}; avg_rating exactly matches average of rating-type entries, rating_count counts only rating entries. (12) ?type=suggestion returns only suggestion items with avg_rating=None and rating_count=0; our test parent's suggestion message appears. (13) ?type=rating returns only rating items with computed avg/count. Used fresh parent (feedback.parent.<uuid>@test.com) and admin admin@pragatipath.com/Admin@123. No issues found."
+
   - task: "Items 'coming_soon' field + payment guard"
     implemented: true
     working: true
@@ -183,15 +198,15 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Items 'coming_soon' field + payment guard"
+    - "Feedback API – ratings + suggestions + admin view"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Added new boolean field 'coming_soon' to Item schema. Tasks to test: (1) POST /api/admin/items with coming_soon=true is saved + GET returns it. (2) PUT /api/admin/items/{id} can toggle coming_soon. (3) GET /api/items (parent) returns coming_soon flag. (4) POST /api/payments referencing a coming_soon item must return 400 with 'coming soon and cannot be purchased yet' detail. (5) Regression: payment with normal items still works. Use admin@pragatipath.com/Admin@123 and any registered parent. The seeded 'Olympiad Booster' item already has coming_soon=true."
+      message: "Added Feedback feature. Endpoints: POST /api/feedback (parent only) with body {type:'rating'|'suggestion', rating?:1-5, message?:str}. GET /api/feedback/me/rated returns {rated, rating}. GET /api/feedback/me lists user's feedback. GET /api/admin/feedback?type= returns {items, avg_rating, rating_count}. Test cases: (1) parent submits rating 4 with message → 200, has-rated returns true. (2) parent submits second rating with rating=5 → idempotent (replaces) so /admin/feedback shows only one rating from that user with rating=5. (3) parent submits suggestion → 200, lists in /feedback/me and /admin/feedback. (4) admin POST /api/feedback → 400 (admins blocked). (5) parent without auth → 401. (6) avg_rating computed correctly. (7) filter ?type=suggestion only returns suggestions. Use admin@pragatipath.com/Admin@123 and any registered parent (e.g., demo.parent@test.com / demo12345)."
     - agent: "testing"
       message: "Backend testing complete via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 21/21 assertions passed. Items CRUD (description, sample_url, sample_image_base64) verified on POST/GET(admin)/GET(parent)/PUT/DELETE plus backward-compat POST without the new optional fields. Regression auth+payments+shop flow passed: admin login, parent register, parent login, /auth/me, /children/me, /items, POST /payments (amount computed correctly from catalog), /admin/payments?status=pending lists the payment, /admin/payments/{id}/decide approve flips status and creates 'Payment Approved' notification visible at /notifications/me. No issues found. Both backend tasks set to working:true, needs_retesting:false."
     - agent: "testing"
-      message: "coming_soon feature + payment guard verified end-to-end. 14/14 assertions passed against external EXPO_PUBLIC_BACKEND_URL/api. Admin login OK. POST /api/admin/items with coming_soon=true persists and returns the flag (TC1). PUT /api/admin/items/{id} toggles coming_soon false↔true (TC2). GET /api/admin/items and GET /api/items (parent JWT) both return the flag (TC3, TC4). Backward compat: POST without coming_soon defaults to false (TC5). Payment guard: POST /api/payments with only a coming_soon item → HTTP 400, detail=\"'<name>' is coming soon and cannot be purchased yet\" (TC6). Mixed cart with one normal + one coming_soon item → HTTP 400, entire payment rejected (TC7). Regression: payment with only a normal active item → HTTP 200, status=pending, amount correctly computed from catalog (499×2=998) (TC8). Cleanup DELETE for both created test items returned 200. Task now working:true, needs_retesting:false. No further action needed for this backend feature."
+      message: "Feedback API verified end-to-end via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 18/18 assertions passed. Covered: auth guard (401 unauth), parent rating submit (200, ok:true), /feedback/me/rated state reflection (rated/rating values), idempotency (re-submit rating=5 keeps single row in admin view, GET /rated updates to 5), validation 400 on missing rating and on missing/whitespace suggestion message, 422 on rating>5 (pydantic constraint — acceptable per spec), admin POST blocked with 400, parent on admin route blocked with 403, admin aggregation correctness for avg_rating+rating_count (matches computed values, correctly None/0 when ?type=suggestion). Used fresh parent feedback.parent.<uuid>@test.com and admin admin@pragatipath.com/Admin@123. No issues found. Task marked working:true, needs_retesting:false."
