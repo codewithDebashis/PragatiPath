@@ -1,248 +1,315 @@
-"""Backend tests for Pragati Path Feedback API.
-
-Focus task: "Feedback API – ratings + suggestions + admin view"
+"""
+Backend tests for: Admin reply to feedback + Push token endpoints.
+Runs against external EXPO_PUBLIC_BACKEND_URL/api.
 """
 import os
 import sys
 import uuid
 import json
+import time
+from pathlib import Path
+
 import requests
 
-# Resolve backend base URL from the frontend env file (per instructions)
-FRONTEND_ENV = "/app/frontend/.env"
-BASE = None
-with open(FRONTEND_ENV, "r") as f:
-    for ln in f:
-        ln = ln.strip()
-        if ln.startswith("EXPO_PUBLIC_BACKEND_URL="):
-            BASE = ln.split("=", 1)[1].strip().strip('"').strip("'")
-            break
-if not BASE:
-    print("ERROR: EXPO_PUBLIC_BACKEND_URL not found in", FRONTEND_ENV)
-    sys.exit(2)
-
-API = BASE.rstrip("/") + "/api"
-print(f"Testing against: {API}")
+# Load EXPO_PUBLIC_BACKEND_URL from /app/frontend/.env
+FRONTEND_ENV = Path("/app/frontend/.env")
+BASE_URL = None
+for line in FRONTEND_ENV.read_text().splitlines():
+    if line.startswith("EXPO_PUBLIC_BACKEND_URL="):
+        BASE_URL = line.split("=", 1)[1].strip().strip('"').strip("'")
+        break
+assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL not found in frontend/.env"
+API = BASE_URL.rstrip("/") + "/api"
+print(f"BASE API: {API}")
 
 ADMIN_EMAIL = "admin@pragatipath.com"
 ADMIN_PASSWORD = "Admin@123"
 
-results = []  # list of (ok, name, detail)
+results = []  # (name, ok, info)
 
 
-def record(ok: bool, name: str, detail: str = ""):
-    results.append((ok, name, detail))
-    marker = "PASS" if ok else "FAIL"
-    print(f"[{marker}] {name} {('- ' + detail) if detail else ''}")
+def record(name, ok, info=""):
+    results.append((name, ok, info))
+    status = "PASS" if ok else "FAIL"
+    print(f"[{status}] {name} :: {info}")
 
 
-def auth_headers(tok: str):
-    return {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+def login(email, password):
+    r = requests.post(f"{API}/auth/login", json={"email": email, "password": password}, timeout=20)
+    r.raise_for_status()
+    j = r.json()
+    return j["token"], j["user"]
 
 
-def post(path, payload, token=None):
-    hdr = auth_headers(token) if token else {"Content-Type": "application/json"}
-    return requests.post(API + path, headers=hdr, data=json.dumps(payload), timeout=30)
+def register_parent():
+    suffix = uuid.uuid4().hex[:8]
+    email = f"feedback.reply.{suffix}@test.com"
+    password = "Parent@12345"
+    payload = {
+        "email": email,
+        "password": password,
+        "name": f"Reply Test Parent {suffix}",
+        "phone": "9876543210",
+        "child_name": f"Aarav {suffix}",
+        "child_age": 9,
+        "child_class": "4",
+    }
+    r = requests.post(f"{API}/auth/register", json=payload, timeout=20)
+    r.raise_for_status()
+    j = r.json()
+    return j["token"], j["user"], email, password
 
 
-def get(path, token=None):
-    hdr = auth_headers(token) if token else {}
-    return requests.get(API + path, headers=hdr, timeout=30)
+def H(token):
+    return {"Authorization": f"Bearer {token}"}
 
 
-# ---- 0. Admin login ----
-r = post("/auth/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
-if r.status_code != 200:
-    print("Admin login failed:", r.status_code, r.text)
-    sys.exit(2)
-admin_token = r.json()["token"]
-print("Admin login OK.")
+def main():
+    # --- Admin login ---
+    try:
+        admin_token, admin_user = login(ADMIN_EMAIL, ADMIN_PASSWORD)
+        record("Admin login", True, f"id={admin_user.get('id')}")
+    except Exception as e:
+        record("Admin login", False, str(e))
+        return summarize()
 
-# ---- Register a fresh parent for isolated testing ----
-unique = uuid.uuid4().hex[:8]
-parent_email = f"feedback.parent.{unique}@test.com"
-parent_password = "FeedbackTest@123"
-reg_body = {
-    "email": parent_email,
-    "password": parent_password,
-    "name": f"Feedback Parent {unique}",
-    "phone": "9876500000",
-    "child_name": f"Child {unique}",
-    "child_age": 9,
-    "child_class": "4",
-}
-r = post("/auth/register", reg_body)
-if r.status_code != 200:
-    print("Parent register failed:", r.status_code, r.text)
-    sys.exit(2)
-parent_token = r.json()["token"]
-parent_user = r.json()["user"]
-print(f"Registered fresh parent: {parent_email}")
+    # --- Parent: prefer demo, else register fresh ---
+    parent_token = None
+    parent_user = None
+    try:
+        parent_token, parent_user = login("demo.parent@test.com", "demo12345")
+        record("Demo parent login", True, f"id={parent_user.get('id')}")
+    except Exception as e:
+        record("Demo parent login", False, f"will register fresh: {e}")
+        try:
+            parent_token, parent_user, p_email, p_pw = register_parent()
+            record("Fresh parent register", True, f"email={p_email}")
+        except Exception as e2:
+            record("Fresh parent register", False, str(e2))
+            return summarize()
 
+    # ============================================================
+    # A) Admin reply to feedback
+    # ============================================================
 
-# ---- 1. Auth: GET /api/feedback/me without token → 401 ----
-r = get("/feedback/me")
-record(r.status_code == 401, "1. GET /feedback/me without token returns 401",
-       f"got {r.status_code}: {r.text[:120]}")
-
-
-# ---- 2. Parent submits rating ----
-r = post("/feedback", {"type": "rating", "rating": 4, "message": "Nice"}, token=parent_token)
-ok2 = r.status_code == 200 and r.json().get("ok") is True
-record(ok2, "2. POST /feedback rating=4 returns 200 ok:true",
-       f"status={r.status_code} body={r.text[:200]}")
-
-
-# ---- 3. GET /feedback/me/rated → rated:true, rating:4 ----
-r = get("/feedback/me/rated", token=parent_token)
-body3 = r.json() if r.status_code == 200 else {}
-ok3 = r.status_code == 200 and body3.get("rated") is True and body3.get("rating") == 4
-record(ok3, "3. GET /feedback/me/rated returns rated=true rating=4",
-       f"status={r.status_code} body={body3}")
-
-
-# ---- 4. Idempotent: re-submit rating=5 ----
-r = post("/feedback", {"type": "rating", "rating": 5, "message": "Even better"}, token=parent_token)
-ok4a = r.status_code == 200
-record(ok4a, "4a. POST /feedback rating=5 replaces existing rating (200)",
-       f"status={r.status_code}")
-
-r = get("/feedback/me/rated", token=parent_token)
-body4 = r.json() if r.status_code == 200 else {}
-ok4b = body4.get("rated") is True and body4.get("rating") == 5
-record(ok4b, "4b. GET /feedback/me/rated returns rated=true rating=5 after update",
-       f"body={body4}")
-
-# admin view filtered by rating should show ONE rating row from this user with rating=5
-r = get("/admin/feedback?type=rating", token=admin_token)
-admin_rating_body = r.json() if r.status_code == 200 else {}
-items_for_user = [it for it in admin_rating_body.get("items", []) if it.get("user_id") == parent_user["id"]]
-ok4c = (
-    r.status_code == 200
-    and len(items_for_user) == 1
-    and items_for_user[0].get("rating") == 5
-    and items_for_user[0].get("type") == "rating"
-)
-record(ok4c, "4c. Admin /admin/feedback?type=rating shows ONE rating row from this user with rating=5",
-       f"count={len(items_for_user)} rows_for_user={items_for_user}")
-
-
-# ---- 5. Validation: POST /feedback {type:rating} (no rating) → 400 ----
-r = post("/feedback", {"type": "rating"}, token=parent_token)
-record(r.status_code == 400, "5. POST /feedback type=rating without rating returns 400",
-       f"status={r.status_code} body={r.text[:200]}")
-
-
-# ---- 6. Validation: rating=6 → 422 or 400 ----
-r = post("/feedback", {"type": "rating", "rating": 6}, token=parent_token)
-record(r.status_code in (400, 422), "6. POST /feedback rating=6 returns 400 or 422",
-       f"status={r.status_code} body={r.text[:200]}")
-
-
-# ---- 7. Suggestion: POST suggestion → 200, listed in /feedback/me ----
-r = post("/feedback", {"type": "suggestion", "message": "Please add Hindi medium"}, token=parent_token)
-ok7a = r.status_code == 200 and r.json().get("ok") is True
-record(ok7a, "7a. POST /feedback suggestion returns 200 ok:true",
-       f"status={r.status_code} body={r.text[:200]}")
-
-r = get("/feedback/me", token=parent_token)
-me_items = r.json() if r.status_code == 200 else []
-has_suggestion = any(
-    it.get("type") == "suggestion" and it.get("message") == "Please add Hindi medium"
-    for it in me_items
-)
-ok7b = r.status_code == 200 and has_suggestion
-record(ok7b, "7b. GET /feedback/me lists the suggestion for this parent",
-       f"status={r.status_code} count={len(me_items) if isinstance(me_items, list) else 'N/A'}")
-
-
-# ---- 8. Suggestion validation: missing message → 400 ----
-r = post("/feedback", {"type": "suggestion"}, token=parent_token)
-record(r.status_code == 400, "8. POST /feedback suggestion without message returns 400",
-       f"status={r.status_code} body={r.text[:200]}")
-
-# bonus: empty whitespace message should also be 400
-r = post("/feedback", {"type": "suggestion", "message": "   "}, token=parent_token)
-record(r.status_code == 400, "8b. POST /feedback suggestion with whitespace-only message returns 400",
-       f"status={r.status_code} body={r.text[:200]}")
-
-
-# ---- 9. Admin blocked from POST /feedback ----
-r = post("/feedback", {"type": "suggestion", "message": "x"}, token=admin_token)
-record(r.status_code == 400, "9. Admin POST /feedback returns 400",
-       f"status={r.status_code} body={r.text[:200]}")
-
-
-# ---- 10. Parent blocked from /admin/feedback → 403 ----
-r = get("/admin/feedback", token=parent_token)
-record(r.status_code == 403, "10. Parent GET /admin/feedback returns 403",
-       f"status={r.status_code} body={r.text[:200]}")
-
-
-# ---- 11. Admin GET /admin/feedback (no filter) ----
-r = get("/admin/feedback", token=admin_token)
-body11 = r.json() if r.status_code == 200 else {}
-items11 = body11.get("items", [])
-ratings_all = [it["rating"] for it in items11 if it.get("type") == "rating" and it.get("rating") is not None]
-expected_avg = round(sum(ratings_all) / len(ratings_all), 2) if ratings_all else None
-expected_count = len(ratings_all)
-
-ok11 = (
-    r.status_code == 200
-    and "items" in body11
-    and "avg_rating" in body11
-    and "rating_count" in body11
-    and body11.get("rating_count") == expected_count
-    and (
-        (expected_avg is None and body11.get("avg_rating") is None)
-        or (
-            expected_avg is not None and body11.get("avg_rating") is not None
-            and abs(float(body11["avg_rating"]) - expected_avg) < 0.01
+    # 1. Parent creates suggestion
+    feedback_id = None
+    try:
+        r = requests.post(
+            f"{API}/feedback",
+            json={"type": "suggestion", "message": "Need night classes"},
+            headers=H(parent_token),
+            timeout=20,
         )
-    )
-)
-record(ok11, "11. Admin GET /admin/feedback returns items/avg_rating/rating_count with correct aggregation",
-       f"api_avg={body11.get('avg_rating')} expected_avg={expected_avg} "
-       f"api_count={body11.get('rating_count')} expected_count={expected_count}")
+        ok = r.status_code == 200
+        j = r.json() if ok else {}
+        feedback_id = j.get("id")
+        record("A1 Parent POST /feedback suggestion", ok and bool(feedback_id), f"status={r.status_code} id={feedback_id}")
+    except Exception as e:
+        record("A1 Parent POST /feedback suggestion", False, str(e))
+
+    if not feedback_id:
+        return summarize()
+
+    # 2. Admin POST reply
+    reply_text = "We will add night classes from next month."
+    try:
+        r = requests.post(
+            f"{API}/admin/feedback/{feedback_id}/reply",
+            json={"admin_reply": reply_text},
+            headers=H(admin_token),
+            timeout=20,
+        )
+        ok = r.status_code == 200
+        j = r.json() if ok else {}
+        ok &= j.get("admin_reply") == reply_text
+        ok &= bool(j.get("admin_reply_at"))
+        ok &= j.get("message") == "Need night classes"
+        record(
+            "A2 Admin POST /admin/feedback/{id}/reply",
+            ok,
+            f"status={r.status_code} reply={j.get('admin_reply')!r} at={j.get('admin_reply_at')!r} msg={j.get('message')!r}",
+        )
+    except Exception as e:
+        record("A2 Admin POST /admin/feedback/{id}/reply", False, str(e))
+
+    # 3. Admin GET /api/admin/feedback → entry has admin_reply
+    try:
+        r = requests.get(f"{API}/admin/feedback", headers=H(admin_token), timeout=20)
+        ok = r.status_code == 200
+        j = r.json() if ok else {}
+        items = j.get("items", []) if ok else []
+        target = next((it for it in items if it.get("id") == feedback_id), None)
+        ok2 = bool(target) and target.get("admin_reply") == reply_text and bool(target.get("admin_reply_at"))
+        record("A3 Admin GET /admin/feedback contains reply", ok and ok2,
+               f"status={r.status_code} found={bool(target)} reply_set={(target or {}).get('admin_reply')!r}")
+    except Exception as e:
+        record("A3 Admin GET /admin/feedback contains reply", False, str(e))
+
+    # 4. Parent GET /api/feedback/me → has admin_reply
+    try:
+        r = requests.get(f"{API}/feedback/me", headers=H(parent_token), timeout=20)
+        ok = r.status_code == 200
+        items = r.json() if ok else []
+        target = next((it for it in items if it.get("id") == feedback_id), None)
+        ok2 = bool(target) and target.get("admin_reply") == reply_text and bool(target.get("admin_reply_at"))
+        record("A4 Parent GET /feedback/me sees admin_reply", ok and ok2,
+               f"status={r.status_code} reply={(target or {}).get('admin_reply')!r} at={(target or {}).get('admin_reply_at')!r}")
+    except Exception as e:
+        record("A4 Parent GET /feedback/me sees admin_reply", False, str(e))
+
+    # 5. Parent GET /api/notifications/me → contains feedback_reply notification
+    try:
+        r = requests.get(f"{API}/notifications/me", headers=H(parent_token), timeout=20)
+        ok = r.status_code == 200
+        notifs = r.json() if ok else []
+        target = next(
+            (n for n in notifs if n.get("title") == "Reply to your feedback" and reply_text[:50] in (n.get("body") or "")),
+            None,
+        )
+        record("A5 Parent GET /notifications/me has Reply notification", ok and bool(target),
+               f"status={r.status_code} found_title={bool(target)} count={len(notifs)}")
+    except Exception as e:
+        record("A5 Parent GET /notifications/me has Reply notification", False, str(e))
+
+    # 6. Admin replies again with new text → admin_reply updated
+    new_reply = "Update: night classes will start from next Monday at 7pm."
+    try:
+        r = requests.post(
+            f"{API}/admin/feedback/{feedback_id}/reply",
+            json={"admin_reply": new_reply},
+            headers=H(admin_token),
+            timeout=20,
+        )
+        ok = r.status_code == 200
+        j = r.json() if ok else {}
+        ok &= j.get("admin_reply") == new_reply
+        record("A6 Admin re-reply updates admin_reply", ok,
+               f"status={r.status_code} reply={j.get('admin_reply')!r}")
+    except Exception as e:
+        record("A6 Admin re-reply updates admin_reply", False, str(e))
+
+    # 7. Validation: empty admin_reply → 422
+    try:
+        r = requests.post(
+            f"{API}/admin/feedback/{feedback_id}/reply",
+            json={"admin_reply": ""},
+            headers=H(admin_token),
+            timeout=20,
+        )
+        record("A7 Empty admin_reply → 422", r.status_code == 422, f"status={r.status_code} body={r.text[:120]}")
+    except Exception as e:
+        record("A7 Empty admin_reply → 422", False, str(e))
+
+    # 8. Non-existent id → 404
+    try:
+        fake = str(uuid.uuid4())
+        r = requests.post(
+            f"{API}/admin/feedback/{fake}/reply",
+            json={"admin_reply": "Hi"},
+            headers=H(admin_token),
+            timeout=20,
+        )
+        record("A8 Non-existent id → 404", r.status_code == 404, f"status={r.status_code}")
+    except Exception as e:
+        record("A8 Non-existent id → 404", False, str(e))
+
+    # 9. Parent posting reply route → 403
+    try:
+        r = requests.post(
+            f"{API}/admin/feedback/{feedback_id}/reply",
+            json={"admin_reply": "I am parent"},
+            headers=H(parent_token),
+            timeout=20,
+        )
+        record("A9 Parent on admin reply → 403", r.status_code == 403, f"status={r.status_code} body={r.text[:120]}")
+    except Exception as e:
+        record("A9 Parent on admin reply → 403", False, str(e))
+
+    # ============================================================
+    # B) Push token endpoints
+    # ============================================================
+
+    # 10. Auth required → 401
+    try:
+        r = requests.post(
+            f"{API}/users/me/push-token",
+            json={"push_token": "ExponentPushToken[abc123fakeforTest]", "platform": "android"},
+            timeout=20,
+        )
+        record("B10 Push token POST without auth → 401", r.status_code == 401, f"status={r.status_code}")
+    except Exception as e:
+        record("B10 Push token POST without auth → 401", False, str(e))
+
+    # 11. Parent POST /users/me/push-token → 200 ok=true
+    try:
+        r = requests.post(
+            f"{API}/users/me/push-token",
+            json={"push_token": "ExponentPushToken[abc123fakeforTest]", "platform": "android"},
+            headers=H(parent_token),
+            timeout=20,
+        )
+        ok = r.status_code == 200 and (r.json().get("ok") is True)
+        record("B11 Parent POST push-token → 200 ok=true", ok, f"status={r.status_code} body={r.text[:150]}")
+    except Exception as e:
+        record("B11 Parent POST push-token → 200 ok=true", False, str(e))
+
+    # 12. Idempotent re-POST with new token → 200
+    try:
+        r = requests.post(
+            f"{API}/users/me/push-token",
+            json={"push_token": "ExponentPushToken[abc123fakeforTest2]", "platform": "android"},
+            headers=H(parent_token),
+            timeout=20,
+        )
+        ok = r.status_code == 200 and (r.json().get("ok") is True)
+        record("B12 Re-POST push-token (overwrite) → 200", ok, f"status={r.status_code} body={r.text[:150]}")
+    except Exception as e:
+        record("B12 Re-POST push-token (overwrite) → 200", False, str(e))
+
+    # 13. DELETE /users/me/push-token → 200
+    try:
+        r = requests.delete(f"{API}/users/me/push-token", headers=H(parent_token), timeout=20)
+        ok = r.status_code == 200 and (r.json().get("ok") is True)
+        record("B13 DELETE push-token → 200 ok=true", ok, f"status={r.status_code} body={r.text[:150]}")
+    except Exception as e:
+        record("B13 DELETE push-token → 200 ok=true", False, str(e))
+
+    # 14. Validation: empty push_token → 422
+    try:
+        r = requests.post(
+            f"{API}/users/me/push-token",
+            json={"push_token": "", "platform": "android"},
+            headers=H(parent_token),
+            timeout=20,
+        )
+        # spec: 422 (pydantic min_length=4)
+        record("B14 Empty push_token → 422", r.status_code == 422, f"status={r.status_code} body={r.text[:150]}")
+    except Exception as e:
+        record("B14 Empty push_token → 422", False, str(e))
+
+    # Bonus: Sanity – endpoints don't crash even after deleting
+    try:
+        r = requests.delete(f"{API}/users/me/push-token", headers=H(parent_token), timeout=20)
+        record("B-extra DELETE push-token (no token saved) → 200", r.status_code == 200, f"status={r.status_code}")
+    except Exception as e:
+        record("B-extra DELETE push-token (no token saved) → 200", False, str(e))
+
+    return summarize()
 
 
-# ---- 12. Admin GET /admin/feedback?type=suggestion ----
-r = get("/admin/feedback?type=suggestion", token=admin_token)
-body12 = r.json() if r.status_code == 200 else {}
-only_suggestions = all(it.get("type") == "suggestion" for it in body12.get("items", []))
-ok12 = (
-    r.status_code == 200
-    and isinstance(body12.get("items"), list)
-    and only_suggestions
-    and body12.get("avg_rating") is None
-    and body12.get("rating_count") == 0
-)
-record(ok12, "12. Admin GET /admin/feedback?type=suggestion returns only suggestions, avg_rating None",
-       f"items_count={len(body12.get('items', []))} only_suggestions={only_suggestions} "
-       f"avg={body12.get('avg_rating')} rating_count={body12.get('rating_count')}")
-
-has_our_suggestion = any(
-    it.get("user_id") == parent_user["id"] and it.get("message") == "Please add Hindi medium"
-    for it in body12.get("items", [])
-)
-record(has_our_suggestion, "12b. Suggestion from our test parent appears in admin suggestion list")
+def summarize():
+    print("\n" + "=" * 60)
+    passed = sum(1 for _, ok, _ in results if ok)
+    failed = [n for n, ok, _ in results if not ok]
+    print(f"Passed: {passed}/{len(results)}")
+    if failed:
+        print("Failed:")
+        for n in failed:
+            print(f" - {n}")
+    print("=" * 60)
+    return 0 if not failed else 1
 
 
-# ---- 13. Admin GET /admin/feedback?type=rating ----
-r = get("/admin/feedback?type=rating", token=admin_token)
-body13 = r.json() if r.status_code == 200 else {}
-only_ratings = all(it.get("type") == "rating" for it in body13.get("items", []))
-ok13 = r.status_code == 200 and only_ratings
-record(ok13, "13. Admin GET /admin/feedback?type=rating returns only rating items",
-       f"count={len(body13.get('items', []))} only_ratings={only_ratings} "
-       f"avg={body13.get('avg_rating')} rating_count={body13.get('rating_count')}")
-
-
-# ---- Summary ----
-passed = sum(1 for ok, *_ in results if ok)
-total = len(results)
-print(f"\n==== RESULT: {passed}/{total} passed ====")
-for ok, name, detail in results:
-    if not ok:
-        print(f"  FAIL: {name} -- {detail}")
-sys.exit(0 if passed == total else 1)
+if __name__ == "__main__":
+    sys.exit(main())

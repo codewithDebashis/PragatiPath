@@ -8,7 +8,7 @@ import { api, formatApiError } from '../src/api';
 import { useAuth } from '../src/auth';
 import { colors, radii, shadow } from '../src/theme';
 
-type Feedback = { id: string; type: 'rating' | 'suggestion'; rating?: number; message?: string; created_at: string };
+type Feedback = { id: string; type: 'rating' | 'suggestion'; rating?: number; message?: string; created_at: string; admin_reply?: string; admin_reply_at?: string };
 
 export default function SuggestionsScreen() {
   const router = useRouter();
@@ -86,6 +86,16 @@ export default function SuggestionsScreen() {
                 <Text style={styles.dateTxt}>{new Date(it.created_at).toLocaleString()}</Text>
               </View>
               {it.message ? <Text style={styles.histTxt}>{it.message}</Text> : null}
+              {it.admin_reply ? (
+                <View style={styles.adminReply} testID={`reply-${it.id}`}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="shield-checkmark" size={13} color={colors.primary} />
+                    <Text style={styles.adminReplyHead}>Reply from Admin</Text>
+                  </View>
+                  <Text style={styles.adminReplyTxt}>{it.admin_reply}</Text>
+                  {it.admin_reply_at ? <Text style={styles.adminReplyDate}>{new Date(it.admin_reply_at).toLocaleString()}</Text> : null}
+                </View>
+              ) : null}
             </View>
           ))}
         </ScrollView>
@@ -113,4 +123,8 @@ const styles = StyleSheet.create({
   dateTxt: { color: colors.textSecondary, fontSize: 11, marginLeft: 4 },
   tag: { backgroundColor: colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
   tagTxt: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  adminReply: { marginTop: 10, padding: 10, backgroundColor: '#EFF6FF', borderLeftWidth: 3, borderLeftColor: colors.primary, borderRadius: 6 },
+  adminReplyHead: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+  adminReplyTxt: { color: colors.textPrimary, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  adminReplyDate: { color: colors.textSecondary, fontSize: 10, marginTop: 4 },
 });

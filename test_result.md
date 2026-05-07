@@ -105,6 +105,21 @@
 user_problem_statement: "Verify the View Sample / item description feature on the Pragati Path coaching centre app. Admin should be able to add items (notes/study materials/courses) with description, sample_url and sample_image_base64. Parents in the Shop should see description + a 'View Sample' button that opens the URL or previews the image before paying. Also ensure no regression in existing shop/payments/auth flow."
 
 backend:
+  - task: "Admin reply to feedback + Push token endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "POST /api/admin/feedback/{id}/reply (admin only) updates admin_reply + admin_reply_at, creates a notification with type=feedback_reply for the user, and fires Expo push to the user's saved token. POST/DELETE /api/users/me/push-token to save/remove device token. Push helpers push_to_user / push_to_users use httpx to call exp.host/--/api/v2/push/send. Push triggers also added to admin compose-message and payment approve/reject."
+        - working: true
+          agent: "testing"
+          comment: "Verified end-to-end via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 17/17 assertions passed. (A) Admin reply to feedback: A1 parent POST /api/feedback {type:'suggestion', message:'Need night classes'} → 200 with id captured. A2 admin POST /api/admin/feedback/{id}/reply {admin_reply:'We will add night classes from next month.'} → 200 and response contains admin_reply, admin_reply_at (ISO ts), and original message intact. A3 admin GET /api/admin/feedback finds the same id with admin_reply set. A4 parent GET /api/feedback/me sees admin_reply + admin_reply_at populated. A5 parent GET /api/notifications/me contains a notification with title='Reply to your feedback' and body matching the reply. A6 admin re-replies with new text and admin_reply is updated to the new value (same feedback id). A7 admin POST reply with empty admin_reply → 422 (pydantic min_length=1). A8 admin POST reply on a fresh non-existent uuid → 404. A9 parent POST /api/admin/feedback/{id}/reply → 403 'Admin access required'. (B) Push token endpoints: B10 POST /api/users/me/push-token without bearer → 401. B11 parent POST {push_token:'ExponentPushToken[abc123fakeforTest]', platform:'android'} → 200 {ok:true}. B12 re-POST with a different fake token → 200 {ok:true} (idempotent overwrite). B13 DELETE /api/users/me/push-token → 200 {ok:true}. B14 POST with empty push_token → 422 (pydantic min_length=4). Bonus: subsequent DELETE after token already removed still returns 200 (no crash). Backend logs clean — push helpers using httpx to exp.host did NOT raise even with fake tokens (best-effort and silent on bad token, as designed). Used demo.parent@test.com/demo12345 and admin@pragatipath.com/Admin@123. No issues found."
+
   - task: "Feedback API – ratings + suggestions + admin view"
     implemented: true
     working: true
@@ -197,16 +212,17 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Feedback API – ratings + suggestions + admin view"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Added Feedback feature. Endpoints: POST /api/feedback (parent only) with body {type:'rating'|'suggestion', rating?:1-5, message?:str}. GET /api/feedback/me/rated returns {rated, rating}. GET /api/feedback/me lists user's feedback. GET /api/admin/feedback?type= returns {items, avg_rating, rating_count}. Test cases: (1) parent submits rating 4 with message → 200, has-rated returns true. (2) parent submits second rating with rating=5 → idempotent (replaces) so /admin/feedback shows only one rating from that user with rating=5. (3) parent submits suggestion → 200, lists in /feedback/me and /admin/feedback. (4) admin POST /api/feedback → 400 (admins blocked). (5) parent without auth → 401. (6) avg_rating computed correctly. (7) filter ?type=suggestion only returns suggestions. Use admin@pragatipath.com/Admin@123 and any registered parent (e.g., demo.parent@test.com / demo12345)."
+      message: "New endpoints to test: (A) Admin reply – POST /api/admin/feedback/{id}/reply with {admin_reply} requires admin role; updates feedback (admin_reply, admin_reply_at) and creates a notification with title 'Reply to your feedback' for the user. Verify (1) reply persists in feedback list, (2) notification appears in /api/notifications/me for that user, (3) parent role POSTing to admin reply route → 403, (4) reply with empty body → 422. (B) Push token endpoints – POST /api/users/me/push-token {push_token: 'ExponentPushToken[fake]', platform:'android'} → 200 ok=true; user doc should now have push_token field; DELETE /api/users/me/push-token removes it; both require auth (401 without token); validation: empty token → 422 / 400. Use admin@pragatipath.com/Admin@123 and demo.parent@test.com/demo12345. Push helpers calling exp.host should NOT be tested live; the calls are best-effort and silent on failure (httpx) — just verify endpoints don't crash even if the token is fake."
     - agent: "testing"
       message: "Backend testing complete via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 21/21 assertions passed. Items CRUD (description, sample_url, sample_image_base64) verified on POST/GET(admin)/GET(parent)/PUT/DELETE plus backward-compat POST without the new optional fields. Regression auth+payments+shop flow passed: admin login, parent register, parent login, /auth/me, /children/me, /items, POST /payments (amount computed correctly from catalog), /admin/payments?status=pending lists the payment, /admin/payments/{id}/decide approve flips status and creates 'Payment Approved' notification visible at /notifications/me. No issues found. Both backend tasks set to working:true, needs_retesting:false."
     - agent: "testing"
       message: "Feedback API verified end-to-end via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 18/18 assertions passed. Covered: auth guard (401 unauth), parent rating submit (200, ok:true), /feedback/me/rated state reflection (rated/rating values), idempotency (re-submit rating=5 keeps single row in admin view, GET /rated updates to 5), validation 400 on missing rating and on missing/whitespace suggestion message, 422 on rating>5 (pydantic constraint — acceptable per spec), admin POST blocked with 400, parent on admin route blocked with 403, admin aggregation correctness for avg_rating+rating_count (matches computed values, correctly None/0 when ?type=suggestion). Used fresh parent feedback.parent.<uuid>@test.com and admin admin@pragatipath.com/Admin@123. No issues found. Task marked working:true, needs_retesting:false."
+    - agent: "testing"
+      message: "Admin reply to feedback + Push token endpoints verified via /app/backend_test.py against external EXPO_PUBLIC_BACKEND_URL/api. 17/17 assertions passed. (A) Reply: parent suggestion → admin reply persists with admin_reply_at ISO timestamp; visible via GET /api/admin/feedback and parent's GET /api/feedback/me; parent's GET /api/notifications/me contains a notification titled 'Reply to your feedback' with the reply body; second reply OVERWRITES admin_reply with new text; empty reply → 422 (pydantic min_length=1); non-existent feedback id → 404; parent role on admin reply route → 403. (B) Push tokens: POST /api/users/me/push-token without bearer → 401; with parent JWT and ExponentPushToken[...] → 200 {ok:true}; re-POST with different fake token → 200 (idempotent overwrite); DELETE → 200; subsequent DELETE on already-removed token → 200 (no crash); empty push_token → 422 (min_length=4). Backend never raised on httpx push to exp.host with fake tokens — the warning logs are silenced as designed. Used demo.parent@test.com/demo12345 + admin@pragatipath.com/Admin@123. Task marked working:true, needs_retesting:false."

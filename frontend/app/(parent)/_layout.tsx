@@ -5,10 +5,12 @@ import { useAuth } from '../../src/auth';
 import { colors } from '../../src/theme';
 import { useUnreadCount } from '../../src/useUnreadCount';
 import RatingPrompt from '../../src/RatingPrompt';
+import { usePushNotifications } from '../../src/usePushNotifications';
 
 export default function ParentLayout() {
   const { user, loading } = useAuth();
   const { count } = useUnreadCount();
+  usePushNotifications();
   if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View>;
   if (!user) return <Redirect href="/login" />;
   if (user.role === 'admin') return <Redirect href="/(admin)/dashboard" />;

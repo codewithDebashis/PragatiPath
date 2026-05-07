@@ -9,6 +9,7 @@ import uuid
 import logging
 import bcrypt
 import jwt
+import httpx
 from datetime import datetime, timezone, timedelta, date
 from typing import List, Optional, Literal
 
@@ -91,6 +92,51 @@ async def get_wallet_balance(user_id: str) -> float:
     ]
     res = await db.transactions.aggregate(pipe).to_list(1)
     return float(res[0]["total"]) if res else 0.0
+
+
+# ---------------- Push Notifications (Expo Push) ----------------
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+
+
+async def _send_expo_push(messages: list):
+    """Best-effort POST to Expo push API. Silently logs failures so business logic isn't blocked."""
+    if not messages:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client_http:
+            await client_http.post(EXPO_PUSH_URL, json=messages, headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip, deflate",
+                "Content-Type": "application/json",
+            })
+    except Exception as e:
+        logger.warning("Expo push failed: %s", e)
+
+
+async def push_to_user(user_id: str, title: str, body: str, data: Optional[dict] = None):
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "push_token": 1})
+    token = (user or {}).get("push_token")
+    if not token or not token.startswith("ExponentPushToken"):
+        return
+    msg = {
+        "to": token,
+        "title": title,
+        "body": body,
+        "sound": "default",
+        "priority": "high",
+        "data": data or {},
+    }
+    await _send_expo_push([msg])
+
+
+async def push_to_users(user_ids: list, title: str, body: str, data: Optional[dict] = None):
+    if not user_ids:
+        return
+    users = await db.users.find({"id": {"$in": user_ids}, "push_token": {"$regex": "^ExponentPushToken"}}, {"_id": 0, "push_token": 1}).to_list(len(user_ids))
+    msgs = [{"to": u["push_token"], "title": title, "body": body, "sound": "default", "priority": "high", "data": data or {}} for u in users]
+    # Expo accepts up to 100 messages per request
+    for i in range(0, len(msgs), 100):
+        await _send_expo_push(msgs[i:i + 100])
 
 
 async def get_current_user(request: Request) -> dict:
@@ -254,6 +300,15 @@ class FeedbackIn(BaseModel):
     type: Literal["rating", "suggestion"]
     rating: Optional[int] = Field(default=None, ge=1, le=5)
     message: Optional[str] = None
+
+
+class AdminFeedbackReplyIn(BaseModel):
+    admin_reply: str = Field(min_length=1, max_length=2000)
+
+
+class PushTokenIn(BaseModel):
+    push_token: str = Field(min_length=4, max_length=400)
+    platform: Optional[str] = None  # "ios" | "android" | "web"
 
 
 # ---------------- Auth ----------------
@@ -661,6 +716,8 @@ async def decide_payment(payment_id: str, body: PaymentDecisionIn, admin: dict =
                 "read": False,
                 "created_at": now_iso(),
             })
+        # Push the good news
+        await push_to_user(user["id"], "Payment Approved ✅", f"₹{payment['amount']} received. Thank you!", {"type": "payment", "payment_id": payment_id})
     else:
         await db.notifications.insert_one({
             "id": str(uuid.uuid4()),
@@ -671,6 +728,7 @@ async def decide_payment(payment_id: str, body: PaymentDecisionIn, admin: dict =
             "read": False,
             "created_at": now_iso(),
         })
+        await push_to_user(user["id"], "Payment Rejected", body.admin_note or "Please contact admin.", {"type": "payment", "payment_id": payment_id})
 
     return await db.payments.find_one({"id": payment_id}, {"_id": 0})
 
@@ -752,6 +810,8 @@ async def admin_send(body: AdminMessageIn, admin: dict = Depends(require_admin))
         "created_at": now_iso(),
     } for uid in target_ids]
     await db.notifications.insert_many(docs)
+    # Fire-and-forget push notifications
+    await push_to_users(target_ids, body.title, body.body[:280], {"type": "admin"})
     return {"sent": len(target_ids)}
 
 
@@ -1136,6 +1196,52 @@ async def admin_feedback(
             avg = round(sum(ratings) / len(ratings), 2)
             count_rating = len(ratings)
     return {"items": items, "avg_rating": avg, "rating_count": count_rating}
+
+
+@api_router.post("/admin/feedback/{feedback_id}/reply")
+async def reply_to_feedback(feedback_id: str, body: AdminFeedbackReplyIn, admin: dict = Depends(require_admin)):
+    fb = await db.feedbacks.find_one({"id": feedback_id}, {"_id": 0})
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    reply_at = now_iso()
+    await db.feedbacks.update_one(
+        {"id": feedback_id},
+        {"$set": {"admin_reply": body.admin_reply.strip(), "admin_reply_at": reply_at}},
+    )
+    # Notification + push
+    user_id = fb.get("user_id")
+    if user_id:
+        title = "Reply to your feedback"
+        msg_body = body.admin_reply.strip()[:280]
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": title,
+            "body": msg_body,
+            "image_base64": None,
+            "type": "feedback_reply",
+            "read": False,
+            "created_at": reply_at,
+        })
+        await push_to_user(user_id, title, msg_body, {"type": "feedback_reply", "feedback_id": feedback_id})
+    updated = await db.feedbacks.find_one({"id": feedback_id}, {"_id": 0})
+    return updated
+
+
+# ---------------- Push Notification Tokens ----------------
+@api_router.post("/users/me/push-token")
+async def save_push_token(body: PushTokenIn, user: dict = Depends(get_current_user)):
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"push_token": body.push_token, "push_platform": body.platform, "push_token_updated_at": now_iso()}},
+    )
+    return {"ok": True}
+
+
+@api_router.delete("/users/me/push-token")
+async def remove_push_token(user: dict = Depends(get_current_user)):
+    await db.users.update_one({"id": user["id"]}, {"$unset": {"push_token": "", "push_platform": ""}})
+    return {"ok": True}
 
 
 @api_router.get("/")
