@@ -14,9 +14,11 @@ from datetime import datetime, timezone, timedelta, date
 from typing import List, Optional, Literal
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request
+from fastapi.responses import HTMLResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
+from scalar_fastapi import get_scalar_api_reference
 
 
 # ---------------- Setup ----------------
@@ -33,7 +35,78 @@ DEFAULT_TEMPLATE = (
     "Pragati Path is designed for Winners and we believe each child is a winner."
 )
 
-app = FastAPI(title="Pragati Path API")
+API_DESCRIPTION = """
+**Pragati Path** is a coaching-centre management mobile platform for parents and admins.
+
+This REST API powers the Expo mobile app and supports:
+
+* 🔐 **JWT auth** — register / login parents and admins (Bearer tokens, 30-day expiry)
+* 👨‍👩‍👧 **Multi-child management** — parents can register multiple children with class 1–10
+* 🛒 **Shop & Payments** — courses, study materials, T-shirts; UPI screenshot uploads, admin approval
+* 📚 **Content** — YouTube classes, attendance, in-app inbox notifications
+* 💸 **Wallet & Referrals** — commission earnings, withdrawals, referral codes & QR codes
+* ⭐ **Feedback** — ratings + suggestions, admin reply, push notifications via Expo
+
+All endpoints are prefixed with `/api`. Send the JWT token as `Authorization: Bearer <token>` header.
+
+> 📖 **Read the docs first:** `docs/getting-started.md` for end-to-end usage.
+"""
+
+TAGS_METADATA = [
+    {"name": "Auth", "description": "Register, login, profile & current user."},
+    {"name": "Children", "description": "Multi-child profiles per parent."},
+    {"name": "Shop", "description": "Browse purchasable items (courses, materials, merch)."},
+    {"name": "Payments", "description": "Submit UPI payment screenshots, view receipts."},
+    {"name": "Attendance", "description": "Daily attendance per child."},
+    {"name": "Notifications", "description": "User inbox messages."},
+    {"name": "Videos", "description": "YouTube class video links."},
+    {"name": "Wallet", "description": "Commission balance & withdrawals."},
+    {"name": "Referrals", "description": "Referral codes, QR & shareable links."},
+    {"name": "Feedback", "description": "Ratings, suggestions & admin replies."},
+    {"name": "Push", "description": "Expo push token registration."},
+    {"name": "Admin", "description": "Admin-only operations (require admin role)."},
+    {"name": "Public", "description": "Public endpoints (UPI settings, ads, etc.)."},
+]
+
+app = FastAPI(
+    title="Pragati Path API",
+    description=API_DESCRIPTION,
+    version="1.0.0",
+    contact={"name": "Pragati Path Support", "email": "support@pragatipath.com"},
+    license_info={"name": "Proprietary"},
+    openapi_tags=TAGS_METADATA,
+    docs_url="/api/docs/swagger",
+    redoc_url="/api/docs/redoc",
+    openapi_url="/api/openapi.json",
+)
+
+
+@app.get("/api/docs/scalar", include_in_schema=False)
+async def scalar_html():
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title="Pragati Path API · Scalar Reference",
+    )
+
+
+@app.get("/api/docs", include_in_schema=False)
+async def docs_landing():
+    html = """<!doctype html><html><head><meta charset='utf-8'><title>Pragati Path API Docs</title>
+    <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:680px;margin:60px auto;padding:0 20px;color:#0A1F3A;}
+    h1{font-size:28px;margin-bottom:8px;} .sub{color:#6B7280;margin-bottom:32px;}
+    a.btn{display:block;padding:18px 20px;border-radius:14px;background:#0A1F3A;color:#fff;text-decoration:none;margin-bottom:12px;font-weight:600;transition:transform .15s;}
+    a.btn:hover{transform:translateY(-2px);} a.btn small{display:block;color:#9CA3AF;font-weight:400;font-size:12px;margin-top:4px;}
+    a.btn.alt{background:#F3F4F6;color:#0A1F3A;} a.btn.alt small{color:#6B7280;}
+    code{background:#F3F4F6;padding:2px 6px;border-radius:4px;font-size:13px;}</style></head>
+    <body><h1>📖 Pragati Path API Documentation</h1>
+    <p class='sub'>Coaching-centre management API · v1.0.0 · OpenAPI 3.1</p>
+    <a class='btn' href='/api/docs/scalar'>🚀 Open Scalar Reference <small>Modern, searchable, "Try it out" UI</small></a>
+    <a class='btn alt' href='/api/docs/swagger'>📑 Swagger UI <small>Classic interactive docs</small></a>
+    <a class='btn alt' href='/api/docs/redoc'>📘 ReDoc <small>Three-panel reference style</small></a>
+    <a class='btn alt' href='/api/openapi.json'>📦 Raw OpenAPI JSON <small>Download / import into Postman, Insomnia, Bruno</small></a>
+    <p style='margin-top:32px;color:#6B7280;font-size:13px;'>Markdown guides: <code>docs/getting-started.md</code> · <code>docs/authentication.md</code> · <code>docs/endpoints.md</code></p>
+    </body></html>"""
+    return HTMLResponse(html)
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
