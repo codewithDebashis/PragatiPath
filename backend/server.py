@@ -53,19 +53,29 @@ All endpoints are prefixed with `/api`. Send the JWT token as `Authorization: Be
 """
 
 TAGS_METADATA = [
-    {"name": "Auth", "description": "Register, login, profile & current user."},
-    {"name": "Children", "description": "Multi-child profiles per parent."},
+    {"name": "Authentication", "description": "Register, login & current user profile."},
+    {"name": "Children", "description": "Manage children profiles (multi-child per parent)."},
     {"name": "Shop", "description": "Browse purchasable items (courses, materials, merch)."},
     {"name": "Payments", "description": "Submit UPI payment screenshots, view receipts."},
-    {"name": "Attendance", "description": "Daily attendance per child."},
-    {"name": "Notifications", "description": "User inbox messages."},
+    {"name": "Attendance", "description": "View own child's attendance records."},
+    {"name": "Notifications", "description": "Inbox messages — mark read, list unread."},
     {"name": "Videos", "description": "YouTube class video links."},
-    {"name": "Wallet", "description": "Commission balance & withdrawals."},
-    {"name": "Referrals", "description": "Referral codes, QR & shareable links."},
-    {"name": "Feedback", "description": "Ratings, suggestions & admin replies."},
-    {"name": "Push", "description": "Expo push token registration."},
-    {"name": "Admin", "description": "Admin-only operations (require admin role)."},
-    {"name": "Public", "description": "Public endpoints (UPI settings, ads, etc.)."},
+    {"name": "Wallet", "description": "Commission balance, transactions & withdrawal requests."},
+    {"name": "Feedback", "description": "Ratings, suggestions, view admin replies."},
+    {"name": "Push Notifications", "description": "Register/unregister Expo push token for the device."},
+    {"name": "Public", "description": "Unauthenticated endpoints (UPI settings, ads, health)."},
+    {"name": "Admin · Dashboard", "description": "[admin] Stats counters."},
+    {"name": "Admin · Users", "description": "[admin] List parents/children, reset passwords."},
+    {"name": "Admin · Shop", "description": "[admin] Create / edit / delete shop items."},
+    {"name": "Admin · Payments", "description": "[admin] Approve or reject UPI submissions."},
+    {"name": "Admin · Attendance", "description": "[admin] Mark daily attendance."},
+    {"name": "Admin · Messaging", "description": "[admin] Compose inbox messages with optional image; auto-fires push."},
+    {"name": "Admin · Videos", "description": "[admin] Add / remove YouTube class links."},
+    {"name": "Admin · Wallet", "description": "[admin] Approve or reject withdrawal requests."},
+    {"name": "Admin · Referrals", "description": "[admin] Configure commission rates, view referral graph."},
+    {"name": "Admin · Feedback", "description": "[admin] View ratings/suggestions, reply to users."},
+    {"name": "Admin · Ads", "description": "[admin] Update advertisement banner."},
+    {"name": "Admin · Settings", "description": "[admin] UPI ID, welcome message template."},
 ]
 
 app = FastAPI(
@@ -385,7 +395,7 @@ class PushTokenIn(BaseModel):
 
 
 # ---------------- Auth ----------------
-@api_router.post("/auth/register", response_model=TokenOut)
+@api_router.post("/auth/register", response_model=TokenOut, tags=["Authentication"])
 async def register(body: RegisterIn):
     email = body.email.lower().strip()
     existing = await db.users.find_one({"email": email})
@@ -475,7 +485,7 @@ async def register(body: RegisterIn):
     return {"token": token, "user": clean_user(doc)}
 
 
-@api_router.post("/auth/login", response_model=TokenOut)
+@api_router.post("/auth/login", response_model=TokenOut, tags=["Authentication"])
 async def login(body: LoginIn):
     email = body.email.lower().strip()
     user = await db.users.find_one({"email": email})
@@ -485,19 +495,19 @@ async def login(body: LoginIn):
     return {"token": token, "user": clean_user(user)}
 
 
-@api_router.get("/auth/me")
+@api_router.get("/auth/me", tags=["Authentication"])
 async def me(user: dict = Depends(get_current_user)):
     return clean_user(user)
 
 
 # ---------------- Children ----------------
-@api_router.get("/children/me")
+@api_router.get("/children/me", tags=["Children"])
 async def my_children(user: dict = Depends(get_current_user)):
     items = await db.children.find({"parent_id": user["id"]}, {"_id": 0}).sort("created_at", 1).to_list(100)
     return items
 
 
-@api_router.post("/children")
+@api_router.post("/children", tags=["Children"])
 async def add_child(body: ChildIn, user: dict = Depends(get_current_user)):
     if user.get("role") == "admin":
         raise HTTPException(status_code=400, detail="Admins do not have children records")
@@ -507,7 +517,7 @@ async def add_child(body: ChildIn, user: dict = Depends(get_current_user)):
     return doc
 
 
-@api_router.put("/children/{child_id}")
+@api_router.put("/children/{child_id}", tags=["Children"])
 async def update_child(child_id: str, body: ChildIn, user: dict = Depends(get_current_user)):
     res = await db.children.update_one(
         {"id": child_id, "parent_id": user["id"]},
@@ -518,7 +528,7 @@ async def update_child(child_id: str, body: ChildIn, user: dict = Depends(get_cu
     return await db.children.find_one({"id": child_id}, {"_id": 0})
 
 
-@api_router.delete("/children/{child_id}")
+@api_router.delete("/children/{child_id}", tags=["Children"])
 async def delete_child(child_id: str, user: dict = Depends(get_current_user)):
     res = await db.children.delete_one({"id": child_id, "parent_id": user["id"]})
     if res.deleted_count == 0:
@@ -526,14 +536,14 @@ async def delete_child(child_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
-@api_router.get("/admin/children")
+@api_router.get("/admin/children", tags=["Admin · Users"])
 async def all_children(admin: dict = Depends(require_admin)):
     items = await db.children.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
 
 # ---------------- UPI Settings ----------------
-@api_router.get("/upi-settings")
+@api_router.get("/upi-settings", tags=["Public"])
 async def get_upi(user: dict = Depends(get_current_user)):
     settings = await db.upi_settings.find_one({"id": "default"}, {"_id": 0})
     if not settings:
@@ -541,7 +551,7 @@ async def get_upi(user: dict = Depends(get_current_user)):
     return settings
 
 
-@api_router.put("/admin/upi-settings")
+@api_router.put("/admin/upi-settings", tags=["Admin · Settings"])
 async def update_upi(body: UpiSettingsIn, admin: dict = Depends(require_admin)):
     update = {k: v for k, v in body.dict().items() if v is not None}
     update["updated_at"] = now_iso()
@@ -555,19 +565,19 @@ async def update_upi(body: UpiSettingsIn, admin: dict = Depends(require_admin)):
 
 
 # ---------------- Items Catalog ----------------
-@api_router.get("/items")
+@api_router.get("/items", tags=["Shop"])
 async def list_active_items(user: dict = Depends(get_current_user)):
     items = await db.items.find({"active": True}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return items
 
 
-@api_router.get("/admin/items")
+@api_router.get("/admin/items", tags=["Admin · Shop"])
 async def all_items(admin: dict = Depends(require_admin)):
     items = await db.items.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
 
-@api_router.post("/admin/items")
+@api_router.post("/admin/items", tags=["Admin · Shop"])
 async def create_item(body: ItemIn, admin: dict = Depends(require_admin)):
     doc = {"id": str(uuid.uuid4()), **body.dict(), "created_at": now_iso()}
     await db.items.insert_one(doc)
@@ -575,7 +585,7 @@ async def create_item(body: ItemIn, admin: dict = Depends(require_admin)):
     return doc
 
 
-@api_router.put("/admin/items/{item_id}")
+@api_router.put("/admin/items/{item_id}", tags=["Admin · Shop"])
 async def update_item(item_id: str, body: ItemIn, admin: dict = Depends(require_admin)):
     res = await db.items.update_one({"id": item_id}, {"$set": body.dict()})
     if res.matched_count == 0:
@@ -583,7 +593,7 @@ async def update_item(item_id: str, body: ItemIn, admin: dict = Depends(require_
     return await db.items.find_one({"id": item_id}, {"_id": 0})
 
 
-@api_router.delete("/admin/items/{item_id}")
+@api_router.delete("/admin/items/{item_id}", tags=["Admin · Shop"])
 async def delete_item(item_id: str, admin: dict = Depends(require_admin)):
     res = await db.items.delete_one({"id": item_id})
     if res.deleted_count == 0:
@@ -592,7 +602,7 @@ async def delete_item(item_id: str, admin: dict = Depends(require_admin)):
 
 
 # ---------------- Payments ----------------
-@api_router.post("/payments")
+@api_router.post("/payments", tags=["Payments"])
 async def create_payment(body: PaymentCreateIn, user: dict = Depends(get_current_user)):
     if user.get("role") == "admin":
         raise HTTPException(status_code=400, detail="Admins cannot create payments")
@@ -654,13 +664,13 @@ async def create_payment(body: PaymentCreateIn, user: dict = Depends(get_current
     return doc
 
 
-@api_router.get("/payments/me")
+@api_router.get("/payments/me", tags=["Payments"])
 async def my_payments(user: dict = Depends(get_current_user)):
     items = await db.payments.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
 
-@api_router.get("/payments/{payment_id}")
+@api_router.get("/payments/{payment_id}", tags=["Payments"])
 async def payment_detail(payment_id: str, user: dict = Depends(get_current_user)):
     p = await db.payments.find_one({"id": payment_id}, {"_id": 0})
     if not p:
@@ -670,7 +680,7 @@ async def payment_detail(payment_id: str, user: dict = Depends(get_current_user)
     return p
 
 
-@api_router.get("/admin/payments")
+@api_router.get("/admin/payments", tags=["Admin · Payments"])
 async def all_payments(status: Optional[str] = None, admin: dict = Depends(require_admin)):
     q = {}
     if status:
@@ -679,7 +689,7 @@ async def all_payments(status: Optional[str] = None, admin: dict = Depends(requi
     return items
 
 
-@api_router.post("/admin/payments/{payment_id}/decide")
+@api_router.post("/admin/payments/{payment_id}/decide", tags=["Admin · Payments"])
 async def decide_payment(payment_id: str, body: PaymentDecisionIn, admin: dict = Depends(require_admin)):
     payment = await db.payments.find_one({"id": payment_id}, {"_id": 0})
     if not payment:
@@ -807,19 +817,19 @@ async def decide_payment(payment_id: str, body: PaymentDecisionIn, admin: dict =
 
 
 # ---------------- Advertisements ----------------
-@api_router.get("/ads")
+@api_router.get("/ads", tags=["Public"])
 async def list_active_ads(user: dict = Depends(get_current_user)):
     items = await db.ads.find({"active": True}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return items
 
 
-@api_router.get("/admin/ads")
+@api_router.get("/admin/ads", tags=["Admin · Ads"])
 async def all_ads(admin: dict = Depends(require_admin)):
     items = await db.ads.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
 
-@api_router.post("/admin/ads")
+@api_router.post("/admin/ads", tags=["Admin · Ads"])
 async def create_ad(body: AdIn, admin: dict = Depends(require_admin)):
     doc = {"id": str(uuid.uuid4()), **body.dict(), "created_at": now_iso()}
     await db.ads.insert_one(doc)
@@ -827,7 +837,7 @@ async def create_ad(body: AdIn, admin: dict = Depends(require_admin)):
     return doc
 
 
-@api_router.put("/admin/ads/{ad_id}")
+@api_router.put("/admin/ads/{ad_id}", tags=["Admin · Ads"])
 async def update_ad(ad_id: str, body: AdIn, admin: dict = Depends(require_admin)):
     res = await db.ads.update_one({"id": ad_id}, {"$set": body.dict()})
     if res.matched_count == 0:
@@ -835,7 +845,7 @@ async def update_ad(ad_id: str, body: AdIn, admin: dict = Depends(require_admin)
     return await db.ads.find_one({"id": ad_id}, {"_id": 0})
 
 
-@api_router.delete("/admin/ads/{ad_id}")
+@api_router.delete("/admin/ads/{ad_id}", tags=["Admin · Ads"])
 async def delete_ad(ad_id: str, admin: dict = Depends(require_admin)):
     res = await db.ads.delete_one({"id": ad_id})
     if res.deleted_count == 0:
@@ -844,13 +854,13 @@ async def delete_ad(ad_id: str, admin: dict = Depends(require_admin)):
 
 
 # ---------------- Notifications ----------------
-@api_router.get("/notifications/me")
+@api_router.get("/notifications/me", tags=["Notifications"])
 async def my_notifications(user: dict = Depends(get_current_user)):
     items = await db.notifications.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
 
-@api_router.post("/notifications/{notif_id}/read")
+@api_router.post("/notifications/{notif_id}/read", tags=["Notifications"])
 async def read_notif(notif_id: str, user: dict = Depends(get_current_user)):
     await db.notifications.update_one(
         {"id": notif_id, "user_id": user["id"]}, {"$set": {"read": True}}
@@ -858,7 +868,7 @@ async def read_notif(notif_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
-@api_router.post("/admin/notifications")
+@api_router.post("/admin/notifications", tags=["Admin · Messaging"])
 async def admin_send(body: AdminMessageIn, admin: dict = Depends(require_admin)):
     if body.recipient == "user":
         if not body.user_id:
@@ -889,7 +899,7 @@ async def admin_send(body: AdminMessageIn, admin: dict = Depends(require_admin))
 
 
 # ---------------- Attendance ----------------
-@api_router.post("/admin/attendance")
+@api_router.post("/admin/attendance", tags=["Admin · Attendance"])
 async def mark_attendance(body: AttendanceIn, admin: dict = Depends(require_admin)):
     # Upsert one record per (child_id, date)
     child = await db.children.find_one({"id": body.child_id}, {"_id": 0})
@@ -914,7 +924,7 @@ async def mark_attendance(body: AttendanceIn, admin: dict = Depends(require_admi
     return rec
 
 
-@api_router.get("/admin/attendance")
+@api_router.get("/admin/attendance", tags=["Admin · Attendance"])
 async def list_attendance(child_id: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, admin: dict = Depends(require_admin)):
     q = {}
     if child_id: q["child_id"] = child_id
@@ -927,7 +937,7 @@ async def list_attendance(child_id: Optional[str] = None, date_from: Optional[st
     return items
 
 
-@api_router.get("/attendance/me")
+@api_router.get("/attendance/me", tags=["Attendance"])
 async def my_attendance(child_id: str, date_from: Optional[str] = None, date_to: Optional[str] = None, user: dict = Depends(get_current_user)):
     # ensure child belongs to user
     if user.get("role") != "admin":
@@ -945,13 +955,13 @@ async def my_attendance(child_id: str, date_from: Optional[str] = None, date_to:
 
 
 # ---------------- Admin: Users + Template + Stats ----------------
-@api_router.get("/admin/users")
+@api_router.get("/admin/users", tags=["Admin · Users"])
 async def list_users(admin: dict = Depends(require_admin)):
     items = await db.users.find({"role": {"$ne": "admin"}}, {"_id": 0, "password_hash": 0, "issued_password": 0}).sort("created_at", -1).to_list(500)
     return items
 
 
-@api_router.post("/admin/users/{user_id}/reset-password")
+@api_router.post("/admin/users/{user_id}/reset-password", tags=["Admin · Users"])
 async def admin_reset_password(user_id: str, body: AdminResetPasswordIn, admin: dict = Depends(require_admin)):
     target = await db.users.find_one({"id": user_id, "role": "parent"}, {"_id": 0})
     if not target:
@@ -981,13 +991,13 @@ async def admin_reset_password(user_id: str, body: AdminResetPasswordIn, admin: 
     return {"ok": True, "user_id": user_id, "user_id_code": user_id_code, "email": target["email"], "new_password": new_password}
 
 
-@api_router.get("/admin/template")
+@api_router.get("/admin/template", tags=["Admin · Settings"])
 async def get_template(admin: dict = Depends(require_admin)):
     tpl_doc = await db.settings.find_one({"id": "auto_message"}, {"_id": 0})
     return {"template": tpl_doc.get("template") if tpl_doc else DEFAULT_TEMPLATE}
 
 
-@api_router.put("/admin/template")
+@api_router.put("/admin/template", tags=["Admin · Settings"])
 async def update_template(body: TemplateIn, admin: dict = Depends(require_admin)):
     await db.settings.update_one(
         {"id": "auto_message"},
@@ -997,7 +1007,7 @@ async def update_template(body: TemplateIn, admin: dict = Depends(require_admin)
     return {"template": body.template}
 
 
-@api_router.get("/admin/stats")
+@api_router.get("/admin/stats", tags=["Admin · Dashboard"])
 async def admin_stats(admin: dict = Depends(require_admin)):
     pending = await db.payments.count_documents({"status": "pending"})
     approved = await db.payments.count_documents({"status": "approved"})
@@ -1020,7 +1030,7 @@ async def admin_stats(admin: dict = Depends(require_admin)):
 
 
 # ---------------- Videos / Classes ----------------
-@api_router.get("/videos")
+@api_router.get("/videos", tags=["Videos"])
 async def list_videos(child_class: Optional[str] = None, user: dict = Depends(get_current_user)):
     q = {"active": True}
     if child_class:
@@ -1029,13 +1039,13 @@ async def list_videos(child_class: Optional[str] = None, user: dict = Depends(ge
     return items
 
 
-@api_router.get("/admin/videos")
+@api_router.get("/admin/videos", tags=["Admin · Videos"])
 async def all_videos(admin: dict = Depends(require_admin)):
     items = await db.videos.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
 
-@api_router.post("/admin/videos")
+@api_router.post("/admin/videos", tags=["Admin · Videos"])
 async def create_video(body: VideoIn, admin: dict = Depends(require_admin)):
     doc = {"id": str(uuid.uuid4()), **body.dict(), "created_at": now_iso()}
     await db.videos.insert_one(doc)
@@ -1043,7 +1053,7 @@ async def create_video(body: VideoIn, admin: dict = Depends(require_admin)):
     return doc
 
 
-@api_router.put("/admin/videos/{video_id}")
+@api_router.put("/admin/videos/{video_id}", tags=["Admin · Videos"])
 async def update_video(video_id: str, body: VideoIn, admin: dict = Depends(require_admin)):
     res = await db.videos.update_one({"id": video_id}, {"$set": body.dict()})
     if res.matched_count == 0:
@@ -1051,7 +1061,7 @@ async def update_video(video_id: str, body: VideoIn, admin: dict = Depends(requi
     return await db.videos.find_one({"id": video_id}, {"_id": 0})
 
 
-@api_router.delete("/admin/videos/{video_id}")
+@api_router.delete("/admin/videos/{video_id}", tags=["Admin · Videos"])
 async def delete_video(video_id: str, admin: dict = Depends(require_admin)):
     res = await db.videos.delete_one({"id": video_id})
     if res.deleted_count == 0:
@@ -1060,7 +1070,7 @@ async def delete_video(video_id: str, admin: dict = Depends(require_admin)):
 
 
 # ---------------- Wallet & Referrals ----------------
-@api_router.get("/wallet/me")
+@api_router.get("/wallet/me", tags=["Wallet"])
 async def my_wallet(user: dict = Depends(get_current_user)):
     txns = await db.transactions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
     balance = sum(float(t.get("amount", 0)) for t in txns)
@@ -1075,7 +1085,7 @@ async def my_wallet(user: dict = Depends(get_current_user)):
     }
 
 
-@api_router.post("/wallet/withdraw")
+@api_router.post("/wallet/withdraw", tags=["Wallet"])
 async def request_withdraw(body: WithdrawIn, user: dict = Depends(get_current_user)):
     if user.get("role") == "admin":
         raise HTTPException(status_code=400, detail="Admins cannot withdraw")
@@ -1101,13 +1111,13 @@ async def request_withdraw(body: WithdrawIn, user: dict = Depends(get_current_us
     return doc
 
 
-@api_router.get("/wallet/withdrawals/me")
+@api_router.get("/wallet/withdrawals/me", tags=["Wallet"])
 async def my_withdrawals(user: dict = Depends(get_current_user)):
     items = await db.withdrawals.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
 
-@api_router.get("/admin/withdrawals")
+@api_router.get("/admin/withdrawals", tags=["Admin · Wallet"])
 async def admin_withdrawals(status: Optional[str] = None, admin: dict = Depends(require_admin)):
     q = {}
     if status: q["status"] = status
@@ -1115,7 +1125,7 @@ async def admin_withdrawals(status: Optional[str] = None, admin: dict = Depends(
     return items
 
 
-@api_router.post("/admin/withdrawals/{wid}/decide")
+@api_router.post("/admin/withdrawals/{wid}/decide", tags=["Admin · Wallet"])
 async def decide_withdrawal(wid: str, body: WithdrawalDecisionIn, admin: dict = Depends(require_admin)):
     w = await db.withdrawals.find_one({"id": wid}, {"_id": 0})
     if not w:
@@ -1161,13 +1171,13 @@ async def decide_withdrawal(wid: str, body: WithdrawalDecisionIn, admin: dict = 
     return await db.withdrawals.find_one({"id": wid}, {"_id": 0})
 
 
-@api_router.get("/admin/referral-settings")
+@api_router.get("/admin/referral-settings", tags=["Admin · Referrals"])
 async def get_ref_settings(admin: dict = Depends(require_admin)):
     s = await db.settings.find_one({"id": "referral"}, {"_id": 0}) or {}
     return {"registration_bonus": float(s.get("registration_bonus", 0) or 0)}
 
 
-@api_router.put("/admin/referral-settings")
+@api_router.put("/admin/referral-settings", tags=["Admin · Referrals"])
 async def put_ref_settings(body: ReferralSettingsIn, admin: dict = Depends(require_admin)):
     await db.settings.update_one(
         {"id": "referral"},
@@ -1177,7 +1187,7 @@ async def put_ref_settings(body: ReferralSettingsIn, admin: dict = Depends(requi
     return {"registration_bonus": body.registration_bonus}
 
 
-@api_router.get("/admin/referrals")
+@api_router.get("/admin/referrals", tags=["Admin · Referrals"])
 async def admin_referrals(admin: dict = Depends(require_admin)):
     """List all referral relationships."""
     pipe = [
@@ -1190,7 +1200,7 @@ async def admin_referrals(admin: dict = Depends(require_admin)):
 
 
 # ---------------- Feedback / Suggestions ----------------
-@api_router.post("/feedback")
+@api_router.post("/feedback", tags=["Feedback"])
 async def submit_feedback(body: FeedbackIn, user: dict = Depends(get_current_user)):
     if user.get("role") == "admin":
         raise HTTPException(status_code=400, detail="Admins cannot submit feedback")
@@ -1231,13 +1241,13 @@ async def submit_feedback(body: FeedbackIn, user: dict = Depends(get_current_use
     return {"ok": True, "id": doc["id"]}
 
 
-@api_router.get("/feedback/me/rated")
+@api_router.get("/feedback/me/rated", tags=["Feedback"])
 async def has_rated(user: dict = Depends(get_current_user)):
     existing = await db.feedbacks.find_one({"user_id": user["id"], "type": "rating"}, {"_id": 0, "rating": 1, "created_at": 1})
     return {"rated": bool(existing), "rating": existing.get("rating") if existing else None}
 
 
-@api_router.get("/feedback/me/engaged")
+@api_router.get("/feedback/me/engaged", tags=["Feedback"])
 async def has_engaged(user: dict = Depends(get_current_user)):
     """Returns True if the user has submitted ANY feedback (rating or suggestion).
     Used by the rating popup so we don't pester users who already gave feedback."""
@@ -1245,13 +1255,13 @@ async def has_engaged(user: dict = Depends(get_current_user)):
     return {"engaged": bool(any_doc)}
 
 
-@api_router.get("/feedback/me")
+@api_router.get("/feedback/me", tags=["Feedback"])
 async def my_feedback(user: dict = Depends(get_current_user)):
     items = await db.feedbacks.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
 
-@api_router.get("/admin/feedback")
+@api_router.get("/admin/feedback", tags=["Admin · Feedback"])
 async def admin_feedback(
     type: Optional[str] = None,
     admin: dict = Depends(require_admin),
@@ -1271,7 +1281,7 @@ async def admin_feedback(
     return {"items": items, "avg_rating": avg, "rating_count": count_rating}
 
 
-@api_router.post("/admin/feedback/{feedback_id}/reply")
+@api_router.post("/admin/feedback/{feedback_id}/reply", tags=["Admin · Feedback"])
 async def reply_to_feedback(feedback_id: str, body: AdminFeedbackReplyIn, admin: dict = Depends(require_admin)):
     fb = await db.feedbacks.find_one({"id": feedback_id}, {"_id": 0})
     if not fb:
@@ -1302,7 +1312,7 @@ async def reply_to_feedback(feedback_id: str, body: AdminFeedbackReplyIn, admin:
 
 
 # ---------------- Push Notification Tokens ----------------
-@api_router.post("/users/me/push-token")
+@api_router.post("/users/me/push-token", tags=["Push Notifications"])
 async def save_push_token(body: PushTokenIn, user: dict = Depends(get_current_user)):
     await db.users.update_one(
         {"id": user["id"]},
@@ -1311,13 +1321,13 @@ async def save_push_token(body: PushTokenIn, user: dict = Depends(get_current_us
     return {"ok": True}
 
 
-@api_router.delete("/users/me/push-token")
+@api_router.delete("/users/me/push-token", tags=["Push Notifications"])
 async def remove_push_token(user: dict = Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$unset": {"push_token": "", "push_platform": ""}})
     return {"ok": True}
 
 
-@api_router.get("/")
+@api_router.get("/", tags=["Public"])
 async def root():
     return {"message": "Pragati Path API", "ok": True}
 
