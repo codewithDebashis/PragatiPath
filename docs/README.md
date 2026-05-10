@@ -12,6 +12,7 @@ Welcome! This folder contains the complete API documentation for the **Pragati P
 
 | File | Purpose |
 |---|---|
+| **[`SETUP.md`](./SETUP.md)** | 🚀 **Deploy backend to your own server** (full guide w/ MongoDB) |
 | **[`getting-started.md`](./getting-started.md)** | Step-by-step quickstart: register → login → call protected endpoint |
 | **[`authentication.md`](./authentication.md)** | JWT bearer auth, roles, token lifecycle |
 | **[`endpoints.md`](./endpoints.md)** | All endpoints grouped by feature with curl examples |
