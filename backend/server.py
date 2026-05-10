@@ -1343,6 +1343,7 @@ async def startup():
             {"parent_id": {"$in": parent_ids}}, {"_id": 0, "parent_id": 1}
         ).to_list(len(parent_ids) * 5)
         have_child = {c["parent_id"] for c in existing}
+        docs_to_insert = []
         for u in parent_users:
             if u["id"] in have_child:
                 continue
@@ -1351,7 +1352,9 @@ async def startup():
             doc = child_doc(u["id"], u["child_name"], u.get("child_age"), u.get("child_class"))
             if u.get("enrollment_status") == "enrolled":
                 doc["enrollment_status"] = "enrolled"
-            await db.children.insert_one(doc)
+            docs_to_insert.append(doc)
+        if docs_to_insert:
+            await db.children.insert_many(docs_to_insert)
 
 
 @app.on_event("shutdown")
